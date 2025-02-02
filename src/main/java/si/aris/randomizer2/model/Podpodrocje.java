@@ -8,9 +8,10 @@ public class Podpodrocje {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "podpodrocje_id") // Poimenovanje stolpca v bazi
     private int podpodrocjeId;
 
-    @Column(nullable = false)
+    @Column(name = "podrocje_id", nullable = false) // Poimenovanje stolpca v bazi
     private int podrocjeId;
 
     @Column(nullable = false, length = 255)

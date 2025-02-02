@@ -8,23 +8,24 @@ public class IzloceniCOI {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private int id;
+    private int izlocenicoiId; // Uporabimo novo poimenovanje za id
 
-    @Column(nullable = false)
+    @Column(name = "prijava_id", nullable = false) // Prilagodimo ime stolpca
     private int prijavaId;
 
-    @Column(nullable = false)
+    @Column(name = "recenzent_id", nullable = false) // Prilagodimo ime stolpca
     private int recenzentId;
 
+    @Column(name = "razlog") // Prilagodimo ime stolpca
     private String razlog;
 
     // Getterji in setterji
-    public int getId() {
-        return id;
+    public int getIzlocenicoiId() {
+        return izlocenicoiId;
     }
 
-    public void setId(int id) {
-        this.id = id;
+    public void setIzlocenicoiId(int izlocenicoiId) {
+        this.izlocenicoiId = izlocenicoiId;
     }
 
     public int getPrijavaId() {

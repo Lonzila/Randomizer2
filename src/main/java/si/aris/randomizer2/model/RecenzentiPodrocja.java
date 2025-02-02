@@ -8,12 +8,13 @@ public class RecenzentiPodrocja {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "id") // Poimenovanje stolpca v bazi
     private int id;
 
-    @Column(nullable = false)
+    @Column(nullable = false, name = "recenzent_id") // Poimenovanje stolpca v bazi
     private int recenzentId;
 
-    @Column(nullable = false)
+    @Column(nullable = false, name = "podpodrocje_id") // Poimenovanje stolpca v bazi
     private int podpodrocjeId;
 
     // Getterji in setterji

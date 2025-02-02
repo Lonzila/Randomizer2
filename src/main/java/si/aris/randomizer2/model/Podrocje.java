@@ -8,6 +8,7 @@ public class Podrocje {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "podrocje_id") // Poimenovanje stolpca v bazi
     private int podrocjeId;
 
     @Column(nullable = false, length = 255)
@@ -16,7 +17,7 @@ public class Podrocje {
     @Column(nullable = false, length = 255)
     private String koda;
 
-    @Column(length = 255)
+    @Column(name = "ang_naziv", length = 255) // Poimenovanje stolpca v bazi
     private String angNaziv;
 
     // Getterji in setterji

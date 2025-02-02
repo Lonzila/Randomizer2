@@ -8,31 +8,34 @@ public class Recenzent {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "recenzent_id") // Poimenovanje stolpca v bazi
     private int recenzentId;
 
-    @Column(nullable = false)
+    @Column(nullable = false, name = "sifra") // Poimenovanje stolpca v bazi
     private int sifra;
 
-    @Column(nullable = false, length = 255)
+    @Column(nullable = false, length = 255, name = "ime") // Poimenovanje stolpca v bazi
     private String ime;
 
-    @Column(nullable = false, length = 255)
+    @Column(nullable = false, length = 255, name = "priimek") // Poimenovanje stolpca v bazi
     private String priimek;
 
-    @Column(length = 255)
+    @Column(length = 255, name = "e_posta") // Poimenovanje stolpca v bazi
     private String ePosta;
 
-    @Column(columnDefinition = "integer default 7")
+    @Column(name = "max_stevilo_projektov", columnDefinition = "integer default 7") // Poimenovanje stolpca v bazi
     private int maxSteviloProjektov = 7;
 
-    @Column(nullable = false, length = 255)
+    @Column(nullable = false, length = 255, name = "drzava") // Poimenovanje stolpca v bazi
     private String drzava;
 
+    @Column(name = "porocevalec") // Poimenovanje stolpca v bazi
     private Boolean porocevalec;
 
+    @Column(name = "odpoved_pred_dolocitvijo") // Poimenovanje stolpca v bazi
     private Boolean odpovedPredDolocitvijo;
 
-    @Column(columnDefinition = "integer default 7")
+    @Column(name = "prosta_mesta", columnDefinition = "integer default 7") // Poimenovanje stolpca v bazi
     private int prostaMesta = 7;
 
     // Getterji in setterji

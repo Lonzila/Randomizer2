@@ -8,12 +8,13 @@ public class Predizbor {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "predizbor_id") // Poimenovanje stolpca v bazi
     private int id;
 
-    @Column(nullable = false)
+    @Column(name = "prijava_id", nullable = false) // Poimenovanje stolpca v bazi
     private int prijavaId;
 
-    @Column(nullable = false)
+    @Column(name = "recenzent_id", nullable = false) // Poimenovanje stolpca v bazi
     private int recenzentId;
 
     @Column(nullable = false, length = 50)

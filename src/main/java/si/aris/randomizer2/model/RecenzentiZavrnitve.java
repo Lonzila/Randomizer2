@@ -8,12 +8,13 @@ public class RecenzentiZavrnitve {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "id") // Poimenovanje stolpca v bazi
     private int id;
 
-    @Column(nullable = false)
+    @Column(nullable = false, name = "prijava_id") // Poimenovanje stolpca v bazi
     private int prijavaId;
 
-    @Column(nullable = false)
+    @Column(nullable = false, name = "recenzent_id") // Poimenovanje stolpca v bazi
     private int recenzentId;
 
     @Column(length = 255)
