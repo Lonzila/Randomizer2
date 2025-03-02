@@ -1,13 +1,13 @@
 package si.aris.randomizer2.service;
-
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import si.aris.randomizer2.model.*;
 import si.aris.randomizer2.repository.*;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
+import java.util.stream.Collectors;
 
 import static si.aris.randomizer2.model.PartnerskeAgencije.PARTNERSKE_AGENCIJE_MAP;
 
@@ -32,31 +32,59 @@ public class DodeljevanjeService {
     @Autowired
     private StatusPrijavRepository statusPrijavRepository;
 
-    public void dodeliRecenzente() {
+    private static final Logger logger = LoggerFactory.getLogger(DodeljevanjeService.class);
 
-        // 1. Pridobi status "DODELJENA" iz baze
-        StatusPrijav statusDodeljena = statusPrijavRepository.findByNaziv("DODELJENA")
-                .orElseThrow(() -> new RuntimeException("Status 'DODELJENA' ne obstaja v bazi"));
+    public void predizbor() {
 
-        // 1. Pridobi vse prijave s statusom "NEOPREDELJEN" ali "BREZ RECENZENTA"
-        List<Prijava> prijave = prijavaRepository.findByStatusOceneIn(List.of("NEOPREDELJEN", "BREZ RECENZENTA"));
+        StatusPrijav statusNeopreden = statusPrijavRepository.findByNaziv("NEOPREDELJEN")
+                .orElseThrow(() -> new RuntimeException("Status 'NEOPREDELJEN' ni bil najden."));
+        StatusPrijav statusBrezRecenzenta = statusPrijavRepository.findByNaziv("BREZ RECENZENTA")
+                .orElseThrow(() -> new RuntimeException("Status 'BREZ RECENZENTA' ni bil najden."));
 
+        // Pridobimo vse prijave s statusom "NEOPREDELJEN" ali "BREZ RECENZENTA" na podlagi ID-jev
+        List<Prijava> prijave = prijavaRepository.findByStatusPrijavIdIn(List.of(statusNeopreden.getId(), statusBrezRecenzenta.getId()));
+
+        // 2. Sortiramo prijave po podpodročjih
+        Map<Integer, List<Prijava>> prijavePoPodpodrocjih = new HashMap<>();
         for (Prijava prijava : prijave) {
-            // 2. Pridobi ustrezne recenzente
-            List<Recenzent> primerniRecenzenti = pridobiPrimerneRecenzente(prijava);
+            prijavePoPodpodrocjih
+                    .computeIfAbsent(prijava.getPodpodrocjeId(), k -> new ArrayList<>())
+                    .add(prijava);
+        }
 
-            if (primerniRecenzenti.size() >= 2) {
-                // 3. Naključno izberi 2 recenzenta
-                List<Recenzent> izbraniRecenzenti = nakljucnoIzberiRecenzente(primerniRecenzenti, 5);
+        // 3. Za vsako prijavo v posameznem podpodročju dodelimo recenzente
+        for (List<Prijava> prijavePodpodrocja : prijavePoPodpodrocjih.values()) {
 
-                // 4. Dodeli recenzente prijavi
-                for (Recenzent recenzent : izbraniRecenzenti) {
-                    dodeliRecenzentaPrijavi(prijava, recenzent);
+            int steviloPrijav = prijavePodpodrocja.size();
+            int recenzentovNaKrog = 5; // Za vsakih 10 prijav bomo izbrali 5 recenzentov
+
+            // 4. Dodelimo recenzente v blokih po 10 prijav
+            for (int i = 0; i < steviloPrijav; i += 10) {
+                // Izberemo primerne recenzente za naslednjih 10 prijav
+                List<Recenzent> recenzenti = pridobiPrimerneRecenzente(prijavePodpodrocja.get(i));
+
+                Collections.shuffle(recenzenti);
+                // Preverimo, če imamo dovolj prostih recenzentov
+                if (recenzenti.size() < recenzentovNaKrog) {
+                    throw new RuntimeException("Ni dovolj recenzentov za dodelitev vseh prijav.");
                 }
 
-                // 5. Posodobi status prijave na "DODELJENA"
-                prijava.setStatusOcene(statusDodeljena);
-                prijavaRepository.save(prijava);
+                // Dodelimo recenzente za naslednjih 10 prijav
+                for (int j = i; j < Math.min(i + 10, steviloPrijav); j++) {
+                    Prijava prijava = prijavePodpodrocja.get(j);
+
+                    // Izberemo 5 recenzentov za to prijavo
+                    List<Recenzent> izbraniRecenzenti = recenzenti.subList(0, recenzentovNaKrog);
+
+                    // Dodelimo recenzente prijavi
+                    for (Recenzent recenzent : izbraniRecenzenti) {
+                        if (recenzent.getPrijavePredizbor() < 10) {
+                            dodeliRecenzentaPrijavi(prijava, recenzent);
+                            recenzent.setPrijavePredizbor(recenzent.getPrijavePredizbor() + 1);
+                            recenzentRepository.save(recenzent);
+                        }
+                    }
+                }
             }
         }
     }
@@ -80,6 +108,8 @@ public class DodeljevanjeService {
         // 5. Preveri, ali imajo recenzenti še prosta mesta
         recenzenti.removeIf(r -> r.getProstaMesta() <= 0);
 
+        recenzenti.removeIf(r -> r.getPrijavePredizbor() >= 10);
+
         return recenzenti;
     }
 
@@ -100,15 +130,39 @@ public class DodeljevanjeService {
     }
 
     private void dodeliRecenzentaPrijavi(Prijava prijava, Recenzent recenzent) {
-        Predizbor predizbor = new Predizbor();
-        predizbor.setPrijavaId(prijava.getPrijavaId());
-        predizbor.setRecenzentId(recenzent.getRecenzentId());
-        predizbor.setStatus("DODELJENA");
-        predizborRepository.save(predizbor);
+        // Preverimo, ali recenzent še lahko sprejme novo prijavo
+        if (recenzent.getPrijavePredizbor() < 10) { // Predvidevamo, da bo imel 10 prijav
+            // Dodelimo prijavo recenzentu
+            Predizbor predizbor = new Predizbor();
+            predizbor.setPrijavaId(prijava.getPrijavaId());
+            predizbor.setRecenzentId(recenzent.getRecenzentId());
+            predizbor.setStatus("DODELJENA");
+            predizborRepository.save(predizbor);
 
-        // Posodobi prosta mesta recenzenta
-        recenzent.setProstaMesta(recenzent.getProstaMesta() - 1);
-        recenzentRepository.save(recenzent);
+            // Posodobi število prijav recenzenta
+            recenzent.setPrijavePredizbor(recenzent.getPrijavePredizbor() + 1);
+            recenzentRepository.save(recenzent);
+
+            // Poišči status po imenu, kot že imaš
+            StatusPrijav status = statusPrijavRepository.findByNaziv("NEOPREDELJEN")
+                    .orElseThrow(() -> new RuntimeException("Status 'NEOPREDELJEN' ni bil najden."));
+            System.out.println(
+                    status
+            );
+            // Nastavimo celotno entiteto StatusPrijav
+            prijava.setStatusPrijav(status);
+
+            // Posodobi prijavo
+            prijavaRepository.save(prijava);
+        } else {
+            throw new RuntimeException("Recenzent je dosegel maksimalno število prijav.");
+        }
+    }
+
+    public void odstraniVseDodelitve() {
+        // Počisti vse dodelitve iz tabele Predizbor
+        predizborRepository.deleteAll();
+        logger.info("Vse dodelitve so bile uspešno odstranjene iz predizbor tabele.");
     }
 }
 

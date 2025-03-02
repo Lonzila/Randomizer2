@@ -30,7 +30,7 @@ public class RecenzentService {
             recenzent.setIme(updatedRecenzent.getIme());
             recenzent.setPriimek(updatedRecenzent.getPriimek());
             recenzent.setDrzava(updatedRecenzent.getDrzava());
-            recenzent.setMaxSteviloProjektov(updatedRecenzent.getMaxSteviloProjektov());
+            recenzent.setPrijavePredizbor(updatedRecenzent.getPrijavePredizbor());
             recenzent.setProstaMesta(updatedRecenzent.getProstaMesta());
             return repository.save(recenzent);
         });

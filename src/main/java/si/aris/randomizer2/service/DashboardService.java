@@ -32,18 +32,18 @@ public class DashboardService {
     }
 
     public int getOpenApplicationsCount() {
-        return prijavaRepository.countByStatusOceneNaziv("NEOPREDELJEN");
+        return prijavaRepository.countByStatusPrijavNaziv("NEOPREDELJEN");
     }
 
     public int getAssignedApplicationsCount() {
-        return prijavaRepository.countByStatusOceneNaziv("DODELJENA");
+        return prijavaRepository.countByStatusPrijavNaziv("DODELJENA");
     }
 
     public Map<String, Integer> getApplicationsByStatus() {
         Map<String, Integer> stats = new HashMap<>();
-        stats.put("NEOPREDELJEN", prijavaRepository.countByStatusOceneNaziv("NEOPREDELJEN"));
-        stats.put("DODELJENA", prijavaRepository.countByStatusOceneNaziv("DODELJENA"));
-        stats.put("ZAKLJUČENA", prijavaRepository.countByStatusOceneNaziv("ZAKLJUČENA"));
+        stats.put("NEOPREDELJEN", prijavaRepository.countByStatusPrijavNaziv("NEOPREDELJEN"));
+        stats.put("DODELJENA", prijavaRepository.countByStatusPrijavNaziv("DODELJENA"));
+        stats.put("ZAKLJUČENA", prijavaRepository.countByStatusPrijavNaziv("ZAKLJUČENA"));
         return stats;
     }
 

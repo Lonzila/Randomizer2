@@ -45,8 +45,8 @@ public class Prijava {
     private String sifraRO;
 
     @ManyToOne
-    @JoinColumn(name = "status_ocene_id") // Poimenovanje stolpca v bazi
-    private StatusPrijav statusOcene;
+    @JoinColumn(name = "status_prijav_id") // Poimenovanje stolpca v bazi
+    private StatusPrijav statusPrijav;
 
     @Column(name = "ang_naslov", length = 500) // Poimenovanje stolpca v bazi
     private String angNaslov;
@@ -158,12 +158,12 @@ public class Prijava {
         this.sifraRO = sifraRO;
     }
 
-    public StatusPrijav getStatusOcene() {
-        return statusOcene;
+    public StatusPrijav getStatusPrijav() {
+        return statusPrijav;
     }
 
-    public void setStatusOcene(StatusPrijav statusOcene) {
-        this.statusOcene = statusOcene;
+    public void setStatusPrijav(StatusPrijav statusOcene) {
+        this.statusPrijav = statusOcene;
     }
 
     public String getAngNaslov() {

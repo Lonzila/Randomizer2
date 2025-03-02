@@ -23,8 +23,8 @@ public class Recenzent {
     @Column(length = 255, name = "e_posta") // Poimenovanje stolpca v bazi
     private String ePosta;
 
-    @Column(name = "max_stevilo_projektov", columnDefinition = "integer default 7") // Poimenovanje stolpca v bazi
-    private int maxSteviloProjektov = 7;
+    @Column(name = "prijave_predizbor") // Poimenovanje stolpca v bazi
+    private int prijavePredizbor = 0;
 
     @Column(nullable = false, length = 255, name = "drzava") // Poimenovanje stolpca v bazi
     private String drzava;
@@ -71,20 +71,20 @@ public class Recenzent {
         this.priimek = priimek;
     }
 
-    public String getePosta() {
+    public String getPosta() {
         return ePosta;
     }
 
-    public void setePosta(String ePosta) {
+    public void setPosta(String ePosta) {
         this.ePosta = ePosta;
     }
 
-    public int getMaxSteviloProjektov() {
-        return maxSteviloProjektov;
+    public int getPrijavePredizbor() {
+        return prijavePredizbor;
     }
 
-    public void setMaxSteviloProjektov(int maxSteviloProjektov) {
-        this.maxSteviloProjektov = maxSteviloProjektov;
+    public void setPrijavePredizbor(int prijavePredizbor) {
+        this.prijavePredizbor = prijavePredizbor;
     }
 
     public String getDrzava() {
