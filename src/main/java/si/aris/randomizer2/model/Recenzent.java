@@ -2,6 +2,8 @@ package si.aris.randomizer2.model;
 
 import jakarta.persistence.*;
 
+import java.util.List;
+
 @Entity
 @Table(name = "recenzenti")
 public class Recenzent {
@@ -38,7 +40,14 @@ public class Recenzent {
     @Column(name = "prosta_mesta", columnDefinition = "integer default 7") // Poimenovanje stolpca v bazi
     private int prostaMesta = 7;
 
+    @OneToMany(mappedBy = "recenzent")
+    private List<RecenzentiPodrocja> recenzentiPodrocja;
+
+
     // Getterji in setterji
+    public List<RecenzentiPodrocja> getRecenzentiPodrocja() {
+        return recenzentiPodrocja;
+    }
     public int getRecenzentId() {
         return recenzentId;
     }

@@ -8,6 +8,7 @@ import org.springframework.stereotype.Repository;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 @Repository
 public interface RecenzentRepository extends JpaRepository<Recenzent, Integer> {
@@ -23,4 +24,5 @@ public interface RecenzentRepository extends JpaRepository<Recenzent, Integer> {
             "JOIN RecenzentiPodrocja rp ON r.recenzentId = rp.recenzentId " +
             "WHERE rp.podpodrocjeId = :podpodrocjeId AND r.prostaMesta > 0")
     List<Recenzent> findEligibleReviewers(@Param("podpodrocjeId") int podpodrocjeId);
+
 }

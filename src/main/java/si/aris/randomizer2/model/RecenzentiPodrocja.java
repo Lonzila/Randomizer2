@@ -17,7 +17,18 @@ public class RecenzentiPodrocja {
     @Column(nullable = false, name = "podpodrocje_id") // Poimenovanje stolpca v bazi
     private int podpodrocjeId;
 
+    @ManyToOne
+    @JoinColumn(name = "recenzent_id", referencedColumnName = "recenzent_id", insertable = false, updatable = false)
+    private Recenzent recenzent; // Dodajte povezavo do Recenzent entitete
+
     // Getterji in setterji
+    public Recenzent getRecenzent() {
+        return recenzent;
+    }
+
+    public void setRecenzent(Recenzent recenzent) {
+        this.recenzent = recenzent;
+    }
     public int getId() {
         return id;
     }
