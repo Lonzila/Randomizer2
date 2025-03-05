@@ -56,7 +56,7 @@ public class DodeljevanjeService {
 
         //int totalGroups = 0;
         for (Map.Entry<String, List<Prijava>> entry : prijavePoPodpodrocjih.entrySet()) {
-            String key = entry.getKey();
+            //String key = entry.getKey();
             List<Prijava> prijavePodpodrocja = entry.getValue();
             int steviloPrijav = prijavePodpodrocja.size();
 
@@ -97,10 +97,7 @@ public class DodeljevanjeService {
         }
 
         for (Prijava prijava : prijavePodpodrocja) {
-            //mogoce nepotrebno, itak vrnem 5
-            List<Recenzent> izbraniRecenzenti = recenzenti.subList(0, 5);
-
-            for (Recenzent recenzent : izbraniRecenzenti) {
+            for (Recenzent recenzent : recenzenti) {
                 if (recenzent.getPrijavePredizbor() < 10) {
                     dodeliRecenzentaPrijavi(prijava, recenzent);
                     recenzent.setPrijavePredizbor(recenzent.getPrijavePredizbor() + 1);
@@ -150,11 +147,12 @@ public class DodeljevanjeService {
         //izločimo recenzente iz držav partnerskih agencij
         vsiRecenzenti.removeIf(r -> vseDrzave.contains(r.getDrzava()));
 
-        // Preverimo, ali imajo recenzenti še prosta mesta
+        // Preverimo, ali imajo recenzenti še prosta mesta, v bistvu ne rabim, ker imam samo predizbor in pa preverjam že v queryju v findEligibleReviewers.
+        //Pomembno za kasnejše kroge
         vsiRecenzenti.removeIf(r -> r.getProstaMesta() <= prijavePodpodrocja.size());
 
         // Filtriramo recenzente, ki so že sprejeli 10 prijav
-        vsiRecenzenti.removeIf(r -> r.getPrijavePredizbor() >= 10 + prijavePodpodrocja.size());
+        vsiRecenzenti.removeIf(r -> r.getPrijavePredizbor() >= 10 - prijavePodpodrocja.size());
 
         logger.info("Število vseh primernih recenzentov:  " + vsiRecenzenti.size());
 
@@ -184,26 +182,42 @@ public class DodeljevanjeService {
         logger.info("Število recenzentov za primarno podpodročje: {}", recenzentiPrimarnoPodpodrocje.size());
         logger.info("Število recenzentov za dodatno podpodročje: {}", recenzentiDodatnoPodpodrocje.size());
 
-
-        //če je interdisciplinarna prijava
+        //ce je interdisciplinarna prijava
         if (prijavePodpodrocja.getFirst().isInterdisc()) {
-            // Naključno premešamo seznam recenzentov za primarno in dodatno podpodročje
-            Collections.shuffle(recenzentiPrimarnoPodpodrocje);
-            Collections.shuffle(recenzentiDodatnoPodpodrocje);
-            Collections.shuffle(vsiRecenzenti);
+            if (recenzentiPrimarnoPodpodrocje.size()< 2 || recenzentiDodatnoPodpodrocje.size()< 2) {
+                logger.warn("Zmanjkalo recezenzentov za predizbor. Za primarno podpodročje jih je ostalo: " + recenzentiPrimarnoPodpodrocje.size() + " Za sekundarno podpodročje jih je ostalo: " + recenzentiDodatnoPodpodrocje.size());
 
-            // Izberemo 2 recenzenta iz primarnega podpodročja
-            recenzenti.addAll(recenzentiPrimarnoPodpodrocje.subList(0, 2));
+            } else {
+                // Naključno premešamo seznam recenzentov za primarno in dodatno podpodrocje
+                Collections.shuffle(recenzentiPrimarnoPodpodrocje);
+                Collections.shuffle(recenzentiDodatnoPodpodrocje);
 
-            // Izberemo 2 recenzenta iz dodatnega podpodročja
-            recenzenti.addAll(recenzentiDodatnoPodpodrocje.subList(0, 2));
+                // Izberemo 2 recenzenta iz primarnega podpodrocja
+                recenzenti.addAll(recenzentiPrimarnoPodpodrocje.subList(0, 2));
 
-            // Izberemo 1 naključnega recenzenta iz celotnega seznama
-            //tukaj potrebujem narediti tako, da ne more izbrati tistega, ki ga je že izbral v prejšnjih dveh
-            recenzenti.add(vsiRecenzenti.getFirst());
+                // Izberemo 2 recenzenta iz dodatnega podpodrocja
+                recenzenti.addAll(recenzentiDodatnoPodpodrocje.subList(0, 2));
+
+                // Preden izberemo enega naključnega recenzenta, odstranimo tiste, ki so že izbrani v prejšnjih dveh korakih
+                List<Recenzent> prejsnjiIzbraniRecenzenti = new ArrayList<>();
+                prejsnjiIzbraniRecenzenti.addAll(recenzentiPrimarnoPodpodrocje.subList(0, 2));
+                prejsnjiIzbraniRecenzenti.addAll(recenzentiDodatnoPodpodrocje.subList(0, 2));
+
+                // Filtriramo vsiRecenzenti in odstranimo že izbrane recenzente
+                vsiRecenzenti.removeAll(prejsnjiIzbraniRecenzenti);
+
+                // Izberemo 1 naključnega recenzenta iz preostalih
+                if (!vsiRecenzenti.isEmpty()) {
+                    Collections.shuffle(vsiRecenzenti);
+                    recenzenti.add(vsiRecenzenti.getFirst());
+                } else {
+                    logger.warn("Ni več recenzentov za naključen izbor.");
+                }
+            }
+
         } else {
             if(vsiRecenzenti.size()<5) {
-                logger.info("Zmanjkalo recezenzentov za podpodročje: " + primarnoPodpodrocje);
+                logger.warn("Zmanjkalo recezenzentov za podpodročje: " + primarnoPodpodrocje);
             } else {
                 // Za ne-interdisciplinarne prijave izberemo 5 naključnih recenzentov
                 Collections.shuffle(vsiRecenzenti);
