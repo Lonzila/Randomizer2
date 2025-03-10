@@ -1,8 +1,16 @@
 package si.aris.randomizer2.model;
 
 import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 @Entity
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
 @Table(name = "prijave")
 public class Prijava {
 
@@ -17,11 +25,21 @@ public class Prijava {
     @Column(name = "vrsta_projekta", nullable = false, length = 255) // Poimenovanje stolpca v bazi
     private String vrstaProjekta;
 
-    @Column(name = "podpodrocje_id", nullable = false) // Poimenovanje stolpca v bazi
-    private int podpodrocjeId;
+    @ManyToOne
+    @JoinColumn(name = "podpodrocje_id", nullable = false)
+    private Podpodrocje podpodrocje;
 
-    @Column(name = "dodatno_podpodrocje_id") // Poimenovanje stolpca v bazi
-    private Integer dodatnoPodpodrocjeId;
+    @ManyToOne
+    @JoinColumn(name = "dodatno_podpodrocje_id") // Poimenovanje stolpca v bazi
+    private Podpodrocje dodatnoPodpodrocje;
+
+    @ManyToOne
+    @JoinColumn(name = "erc_id", nullable = false)
+    private ErcPodrocje ercPodrocje;
+
+    @ManyToOne
+    @JoinColumn(name = "dodatno_erc_id")
+    private ErcPodrocje dodatnoErcPodrocje;
 
     @Column(name = "naslov", nullable = false, length = 500) // Poimenovanje stolpca v bazi
     private String naslov;
@@ -60,142 +78,5 @@ public class Prijava {
     @Column(name = "sifra_vodje", length = 255) // Poimenovanje stolpca v bazi
     private String sifraVodje;
 
-
-    // Getterji in setterji
-    public int getPrijavaId() {
-        return prijavaId;
-    }
-
-    public void setPrijavaId(int prijavaId) {
-        this.prijavaId = prijavaId;
-    }
-
-    public int getStevilkaPrijave() {
-        return stevilkaPrijave;
-    }
-
-    public void setStevilkaPrijave(int stevilkaPrijave) {
-        this.stevilkaPrijave = stevilkaPrijave;
-    }
-
-    public String getVrstaProjekta() {
-        return vrstaProjekta;
-    }
-
-    public void setVrstaProjekta(String vrstaProjekta) {
-        this.vrstaProjekta = vrstaProjekta;
-    }
-
-    public int getPodpodrocjeId() {
-        return podpodrocjeId;
-    }
-
-    public void setPodpodrocjeId(int podpodrocjeId) {
-        this.podpodrocjeId = podpodrocjeId;
-    }
-
-    public Integer getDodatnoPodpodrocjeId() {
-        return dodatnoPodpodrocjeId;
-    }
-
-    public void setDodatnoPodpodrocjeId(Integer dodatnoPodpodrocjeId) {
-        this.dodatnoPodpodrocjeId = dodatnoPodpodrocjeId;
-    }
-
-    public String getNaslov() {
-        return naslov;
-    }
-
-    public void setNaslov(String naslov) {
-        this.naslov = naslov;
-    }
-
-    public int getSteviloRecenzentov() {
-        return steviloRecenzentov;
-    }
-
-    public void setSteviloRecenzentov(int steviloRecenzentov) {
-        this.steviloRecenzentov = steviloRecenzentov;
-    }
-
-    public boolean isInterdisc() {
-        return interdisc;
-    }
-
-    public void setInterdisc(boolean interdisc) {
-        this.interdisc = interdisc;
-    }
-
-    public String getVodja() {
-        return vodja;
-    }
-
-    public void setVodja(String vodja) {
-        this.vodja = vodja;
-    }
-
-    public String getNazivRO() {
-        return nazivRO;
-    }
-
-    public void setNazivRO(String nazivRO) {
-        this.nazivRO = nazivRO;
-    }
-
-    public String getAngNazivRO() {
-        return angNazivRO;
-    }
-
-    public void setAngNazivRO(String angNazivRO) {
-        this.angNazivRO = angNazivRO;
-    }
-
-    public String getSifraRO() {
-        return sifraRO;
-    }
-
-    public void setSifraRO(String sifraRO) {
-        this.sifraRO = sifraRO;
-    }
-
-    public StatusPrijav getStatusPrijav() {
-        return statusPrijav;
-    }
-
-    public void setStatusPrijav(StatusPrijav statusOcene) {
-        this.statusPrijav = statusOcene;
-    }
-
-    public String getAngNaslov() {
-        return angNaslov;
-    }
-
-    public void setAngNaslov(String angNaslov) {
-        this.angNaslov = angNaslov;
-    }
-
-    public String getPartnerskaAgencija1() {
-        return partnerskaAgencija1;
-    }
-
-    public void setPartnerskaAgencija1(String partnerskaAgencija1) {
-        this.partnerskaAgencija1 = partnerskaAgencija1;
-    }
-
-    public String getPartnerskaAgencija2() {
-        return partnerskaAgencija2;
-    }
-
-    public void setPartnerskaAgencija2(String partnerskaAgencija2) {
-        this.partnerskaAgencija2 = partnerskaAgencija2;
-    }
-
-    public String getSifraVodje() {
-        return sifraVodje;
-    }
-
-    public void setSifraVodje(String sifraVodje) {
-        this.sifraVodje = sifraVodje;
-    }
 
 }

@@ -1,10 +1,18 @@
 package si.aris.randomizer2.model;
 
 import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 import java.util.List;
 
 @Entity
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
 @Table(name = "recenzenti")
 public class Recenzent {
 
@@ -40,91 +48,13 @@ public class Recenzent {
     @Column(name = "prosta_mesta", columnDefinition = "integer default 7") // Poimenovanje stolpca v bazi
     private int prostaMesta = 7;
 
+    // Getterji in setterji
+    @Getter
     @OneToMany(mappedBy = "recenzent")
     private List<RecenzentiPodrocja> recenzentiPodrocja;
 
+    @Getter
+    @OneToMany(mappedBy = "recenzent")
+    private List<RecenzentiErc> recenzentiErc;
 
-    // Getterji in setterji
-    public List<RecenzentiPodrocja> getRecenzentiPodrocja() {
-        return recenzentiPodrocja;
-    }
-    public int getRecenzentId() {
-        return recenzentId;
-    }
-
-    public void setRecenzentId(int recenzentId) {
-        this.recenzentId = recenzentId;
-    }
-
-    public int getSifra() {
-        return sifra;
-    }
-
-    public void setSifra(int sifra) {
-        this.sifra = sifra;
-    }
-
-    public String getIme() {
-        return ime;
-    }
-
-    public void setIme(String ime) {
-        this.ime = ime;
-    }
-
-    public String getPriimek() {
-        return priimek;
-    }
-
-    public void setPriimek(String priimek) {
-        this.priimek = priimek;
-    }
-
-    public String getPosta() {
-        return ePosta;
-    }
-
-    public void setPosta(String ePosta) {
-        this.ePosta = ePosta;
-    }
-
-    public int getPrijavePredizbor() {
-        return prijavePredizbor;
-    }
-
-    public void setPrijavePredizbor(int prijavePredizbor) {
-        this.prijavePredizbor = prijavePredizbor;
-    }
-
-    public String getDrzava() {
-        return drzava;
-    }
-
-    public void setDrzava(String drzava) {
-        this.drzava = drzava;
-    }
-
-    public Boolean getPorocevalec() {
-        return porocevalec;
-    }
-
-    public void setPorocevalec(Boolean porocevalec) {
-        this.porocevalec = porocevalec;
-    }
-
-    public Boolean getOdpovedPredDolocitvijo() {
-        return odpovedPredDolocitvijo;
-    }
-
-    public void setOdpovedPredDolocitvijo(Boolean odpovedPredDolocitvijo) {
-        this.odpovedPredDolocitvijo = odpovedPredDolocitvijo;
-    }
-
-    public int getProstaMesta() {
-        return prostaMesta;
-    }
-
-    public void setProstaMesta(int prostaMesta) {
-        this.prostaMesta = prostaMesta;
-    }
 }

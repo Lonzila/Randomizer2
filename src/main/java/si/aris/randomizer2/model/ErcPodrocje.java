@@ -14,7 +14,7 @@ public class ErcPodrocje {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "erc_id")
-    private Long ercId;
+    private int ercId;
 
     @Column(nullable = false, unique = true)
     private String koda;

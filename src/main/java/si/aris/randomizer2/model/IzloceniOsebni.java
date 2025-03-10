@@ -1,8 +1,16 @@
 package si.aris.randomizer2.model;
 
 import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 @Entity
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
 @Table(name = "izloceniosebni")
 public class IzloceniOsebni {
 
@@ -16,28 +24,4 @@ public class IzloceniOsebni {
     @Column(name = "recenzent_id", nullable = false) // Prilagodimo ime stolpca
     private int recenzentId;
 
-    // Getterji in setterji
-    public int getIzloceniosebniId() {
-        return izloceniosebniId;
-    }
-
-    public void setIzloceniosebniId(int izloceniosebniId) {
-        this.izloceniosebniId = izloceniosebniId;
-    }
-
-    public int getPrijavaId() {
-        return prijavaId;
-    }
-
-    public void setPrijavaId(int prijavaId) {
-        this.prijavaId = prijavaId;
-    }
-
-    public int getRecenzentId() {
-        return recenzentId;
-    }
-
-    public void setRecenzentId(int recenzentId) {
-        this.recenzentId = recenzentId;
-    }
 }
