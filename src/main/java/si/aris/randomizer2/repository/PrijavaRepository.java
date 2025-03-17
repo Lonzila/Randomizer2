@@ -1,7 +1,9 @@
 package si.aris.randomizer2.repository;
 
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import org.springframework.transaction.annotation.Transactional;
 import si.aris.randomizer2.model.Prijava;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
@@ -21,4 +23,10 @@ public interface PrijavaRepository extends JpaRepository<Prijava, Integer> {
 
     // Ali, če želite še vedno delati z ID-ji, uporabite to:
     List<Prijava> findByStatusPrijavIdIn(List<Integer> statusPrijavIds);
+
+    @Modifying
+    @Transactional
+    @Query("UPDATE Prijava p SET p.statusPrijav.id = :statusId")
+    void updateStatusPrijavTo(@Param("statusId") int statusId);
+
 }

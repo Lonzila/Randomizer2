@@ -19,9 +19,8 @@ public class RecenzentiErc {
     @JoinColumn(name = "recenzent_id", nullable = false)
     private Recenzent recenzentId;
 
-    @ManyToOne
-    @JoinColumn(name = "erc_id", nullable = false)
-    private ErcPodrocje ercPodrocjeId;
+    @Column(name = "erc_id", nullable = false)
+    private int ercPodrocjeId;
 
     @ManyToOne
     @JoinColumn(name = "recenzent_id", referencedColumnName = "recenzent_id", insertable = false, updatable = false)

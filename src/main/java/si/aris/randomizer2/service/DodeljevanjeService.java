@@ -3,6 +3,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import si.aris.randomizer2.model.*;
 import si.aris.randomizer2.repository.*;
 
@@ -39,11 +40,13 @@ public class DodeljevanjeService {
         StatusPrijav statusBrezRecenzenta = statusPrijavRepository.findByNaziv("BREZ RECENZENTA")
                 .orElseThrow(() -> new RuntimeException("Status 'BREZ RECENZENTA' ni bil najden."));
 
-        // Pridobimo vse prijave s statusom "BREZ RECENZENTA"
+        // 1. Pridobimo vse prijave s statusom "BREZ RECENZENTA"
         List<Prijava> prijave = prijavaRepository.findByStatusPrijavIdIn(List.of(statusBrezRecenzenta.getId()));
+        logger.info("Predizba prijave, ki so BREZ RECENZENTA: " + prijave.size());
 
         // 2. Sortiramo prijave po podpodročjih
-        Map<String, List<Prijava>> prijavePoKombinacijah  = new HashMap<>();
+        Map<String, List<Prijava>> prijavePoKombinacijah = new HashMap<>();
+        Map<String, Integer> recenzentiNaSkupino = new HashMap<>();
         for (Prijava prijava : prijave) {
             // Sestavimo unikatni ključ za grupiranje prijav
             String key = prijava.getPodpodrocje().getNaziv() + "-" +
@@ -54,13 +57,22 @@ public class DodeljevanjeService {
             prijavePoKombinacijah
                     .computeIfAbsent(key, k -> new ArrayList<>())
                     .add(prijava);
-        }
 
+            int steviloPrimarnihRecenzentov = recenzentRepository.countEligibleReviewers(
+                    prijava.getPodpodrocje().getPodpodrocjeId(), prijava.getErcPodrocje().getErcId());
+            int steviloDodatnihRecenzentov = (prijava.getDodatnoPodpodrocje() != null && prijava.getDodatnoErcPodrocje() != null) ?
+                    recenzentRepository.countEligibleReviewers(prijava.getDodatnoPodpodrocje().getPodpodrocjeId(), prijava.getDodatnoErcPodrocje().getErcId()) : 0;
+
+            recenzentiNaSkupino.put(key, steviloPrimarnihRecenzentov + steviloDodatnihRecenzentov);
+        }
+        //logger.info("Število unikatnih skupin prijav: {}", prijavePoKombinacijah.size());
+        List<Map.Entry<String, List<Prijava>>> sortiraneSkupine = new ArrayList<>(prijavePoKombinacijah.entrySet());
+        sortiraneSkupine.sort(Comparator.comparingInt(entry -> recenzentiNaSkupino.getOrDefault(entry.getKey(), Integer.MAX_VALUE)));
         //int totalGroups = 0;
-        for (Map.Entry<String, List<Prijava>> entry : prijavePoKombinacijah.entrySet()) {
-            //String key = entry.getKey();
+        for (Map.Entry<String, List<Prijava>> entry : sortiraneSkupine) {
             List<Prijava> prijavePodpodrocja = entry.getValue();
             int steviloPrijav = prijavePodpodrocja.size();
+
 
             // Izpisujemo informacije o podpodročju in številu prijav (skupina)
             //logger.info("Skupina (Podpodročje in Dodatno Podpodročje): {} ima {} prijav.", key, steviloPrijav);
@@ -73,12 +85,11 @@ public class DodeljevanjeService {
                 razdeljeneSkupine.add(skupina);
             }
 
+            logger.info("Ustvarjena skupina: {} - Število prijav: {}", entry.getKey(), razdeljeneSkupine.size());
             //totalGroups += razdeljeneSkupine.size();
-            //logger.info("Za podpodročje {} smo ustvarili {} skupin.", key, razdeljeneSkupine.size());
 
             for (int i = 0; i < razdeljeneSkupine.size(); i++) {
                 List<Prijava> skupina = razdeljeneSkupine.get(i);
-                //logger.info("Skupina {}: {} prijav.", i + 1, skupina.size());
             }
 
             // Dodelimo recenzente za vsako skupino
@@ -86,25 +97,19 @@ public class DodeljevanjeService {
                 dodeliRecenzenteZaSkupino(prijaveSkupine);
             }
         }
-
+        logger.info("Število prijav brez recenzenta po predizboru: {}", prijavaRepository.countByStatusPrijavNaziv("BREZ RECENZENTA"));
         //logger.info("Skupno število ustvarjenih skupin: {}", totalGroups);
     }
 
-    private void dodeliRecenzenteZaSkupino(List<Prijava> prijavePodpodrocja) {
+    private void dodeliRecenzenteZaSkupino(List<Prijava> prijaveSkupine) {
 
-        List<Recenzent> recenzenti = pridobiPrimerneRecenzenteZaSkupino(prijavePodpodrocja);
-
-        if (recenzenti.size() < 5) {
-            throw new RuntimeException("Ni dovolj recenzentov za dodelitev vseh prijav.");
-        }
-
-        for (Prijava prijava : prijavePodpodrocja) {
+        List<Recenzent> recenzenti = pridobiPrimerneRecenzenteZaSkupino(prijaveSkupine);
+        /*if (recenzenti.size() < 5) {
+            logger.warn("Ni dovolj recenzentov za dodelitev vseh prijav!");
+        }*/
+        for (Prijava prijava : prijaveSkupine) {
             for (Recenzent recenzent : recenzenti) {
-                if (recenzent.getPrijavePredizbor() < 10) {
-                    dodeliRecenzentaPrijavi(prijava, recenzent);
-                    recenzent.setPrijavePredizbor(recenzent.getPrijavePredizbor() + 1);
-                    recenzentRepository.save(recenzent);
-                }
+                dodeliRecenzentaPrijavi(prijava, recenzent);
             }
         }
     }
@@ -122,6 +127,10 @@ public class DodeljevanjeService {
         var primarnoErcPodrocje = prijavePodpodrocja.getFirst().getErcPodrocje();
         var dodatnoErcPodrocje = prijavePodpodrocja.getFirst().getDodatnoErcPodrocje();
 
+        /*logger.info("Iskanje recenzentov za kombinacijo: Podpodrocje={}, ERC={}", primarnoPodpodrocje.getNaziv(), primarnoErcPodrocje.getKoda());
+        if (dodatnoPodpodrocje != null && dodatnoErcPodrocje != null) {
+            logger.info("Dodatna kombinacija: Podpodrocje={}, ERC={}", dodatnoPodpodrocje.getNaziv(), dodatnoErcPodrocje.getKoda());
+        }*/
         for (Prijava prijava : prijavePodpodrocja) {
             // Dodamo države
             vseDrzave.addAll(pridobiDrzavePartnerskihAgencij(prijava));
@@ -154,13 +163,11 @@ public class DodeljevanjeService {
         vsiRecenzenti.removeIf(r -> vseDrzave.contains(r.getDrzava()));
 
         // Preverimo, ali imajo recenzenti še prosta mesta, v bistvu ne rabim, ker imam samo predizbor in pa preverjam že v queryju v findEligibleReviewers.
-        //Pomembno za kasnejše kroge
-        vsiRecenzenti.removeIf(r -> r.getProstaMesta() <= prijavePodpodrocja.size());
+        //Pomembno za kasnejše krogec
+        //vsiRecenzenti.removeIf(r -> r.getProstaMesta() < prijavePodpodrocja.size());
 
-        // Filtriramo recenzente, ki so že sprejeli 10 prijav
-        vsiRecenzenti.removeIf(r -> r.getPrijavePredizbor() >= 10 - prijavePodpodrocja.size());
-
-        logger.info("Število vseh primernih recenzentov:  " + vsiRecenzenti.size());
+        // Filtriramo recenzente, ki so že sprejeli 10 prijav 6 + 4 = 10
+        vsiRecenzenti.removeIf(r -> r.getPrijavePredizbor() + prijavePodpodrocja.size() > 10 );
 
         // Ločimo recenzente na primarno in dodatno kombinacijo (podpodrocje + ercPodrocje)
         List<Recenzent> recenzentiPrimarno = new ArrayList<>();
@@ -171,7 +178,7 @@ public class DodeljevanjeService {
                     .anyMatch(rp -> rp.getPodpodrocjeId() == primarnoPodpodrocje.getPodpodrocjeId());
 
             boolean hasMatchingErc = recenzent.getRecenzentiErc().stream()
-                    .anyMatch(re -> re.getErcPodrocjeId().getErcId() == primarnoErcPodrocje.getErcId());
+                    .anyMatch(re -> re.getErcPodrocjeId() == primarnoErcPodrocje.getErcId());
 
             boolean isPrimarno = hasMatchingPodpodrocje && hasMatchingErc;
 
@@ -181,7 +188,7 @@ public class DodeljevanjeService {
                         .anyMatch(rp -> rp.getPodpodrocjeId() == dodatnoPodpodrocje.getPodpodrocjeId());
 
                 boolean hasMatchingDodatnoErc = recenzent.getRecenzentiErc().stream()
-                        .anyMatch(re -> re.getErcPodrocjeId().getErcId() == dodatnoErcPodrocje.getErcId());
+                        .anyMatch(re -> re.getErcPodrocjeId() == dodatnoErcPodrocje.getErcId());
 
                 isDodatno = hasMatchingDodatnoPodpodrocje && hasMatchingDodatnoErc;
             }
@@ -193,16 +200,17 @@ public class DodeljevanjeService {
                 recenzentiDodatno.add(recenzent);
             }
         }
-
-
-        logger.info("Število recenzentov za primarno podpodročje: {}", recenzentiPrimarno.size());
-        logger.info("Število recenzentov za dodatno podpodročje: {}", recenzentiDodatno.size());
+        if (vsiRecenzenti.size() < 5) {
+            logger.warn("Premalo recenzentov! Najdenih: {} za kombinacijo Podpodrocje={}, ERC={}.",
+                    vsiRecenzenti.size(), primarnoPodpodrocje.getNaziv(), primarnoErcPodrocje.getKoda());
+            logger.info("Število recenzentov za primarno podpodročje: {}", recenzentiPrimarno.size());
+            logger.info("Število recenzentov za dodatno podpodročje: {}", recenzentiDodatno.size());
+        }
 
         //ce je interdisciplinarna prijava
         if (prijavePodpodrocja.getFirst().isInterdisc()) {
             if (recenzentiPrimarno.size()< 2 || recenzentiDodatno.size()< 2) {
-                logger.warn("Zmanjkalo recezenzentov za predizbor. Za primarno podpodročje jih je ostalo: " + recenzentiPrimarno.size() + " Za sekundarno podpodročje jih je ostalo: " + recenzentiDodatno.size());
-
+                //logger.warn("Zmanjkalo recezenzentov za predizbor. Za primarno podpodročje jih je ostalo: " + recenzentiPrimarno.size() + " Za sekundarno podpodročje jih je ostalo: " + recenzentiDodatno.size());
             } else {
                 // Naključno premešamo seznam recenzentov za primarno in dodatno podpodrocje
                 Collections.shuffle(recenzentiPrimarno);
@@ -233,7 +241,9 @@ public class DodeljevanjeService {
 
         } else {
             if(vsiRecenzenti.size()<5) {
-                logger.warn("Zmanjkalo recezenzentov za podpodročje: " + primarnoPodpodrocje);
+                logger.warn("Zmanjkalo recezenzentov za primarno podpodročje: " + primarnoPodpodrocje);
+                Collections.shuffle(vsiRecenzenti);
+                recenzenti.addAll(vsiRecenzenti.subList(0, Math.min(5, vsiRecenzenti.size())));
             } else {
                 // Za ne-interdisciplinarne prijave izberemo 5 naključnih recenzentov
                 Collections.shuffle(vsiRecenzenti);
@@ -247,10 +257,10 @@ public class DodeljevanjeService {
     private List<String> pridobiDrzavePartnerskihAgencij(Prijava prijava) {
         List<String> partnerskeDrzave = new ArrayList<>();
         if (prijava.getPartnerskaAgencija1() != null) {
-            partnerskeDrzave.add(PARTNERSKE_AGENCIJE_MAP.get(prijava.getPartnerskaAgencija1()));
+            partnerskeDrzave.add(prijava.getPartnerskaAgencija1());
         }
         if (prijava.getPartnerskaAgencija2() != null) {
-            partnerskeDrzave.add(PARTNERSKE_AGENCIJE_MAP.get(prijava.getPartnerskaAgencija2()));
+            partnerskeDrzave.add(prijava.getPartnerskaAgencija2());
         }
         return partnerskeDrzave;
     }
@@ -268,27 +278,36 @@ public class DodeljevanjeService {
             predizbor.setRecenzentId(recenzent.getRecenzentId());
             predizbor.setStatus("DODELJENA");
             predizborRepository.save(predizbor);
-
+            //predizborRepository.flush();
             recenzent.setPrijavePredizbor(recenzent.getPrijavePredizbor() + 1);
             recenzentRepository.save(recenzent);
-
+            //recenzentRepository.flush();
             StatusPrijav status = statusPrijavRepository.findByNaziv("NEOPREDELJEN")
                     .orElseThrow(() -> new RuntimeException("Status 'NEOPREDELJEN' ni bil najden."));
-            System.out.println(
-                    status
-            );
+            //System.out.println(status);
             prijava.setStatusPrijav(status);
-
             prijavaRepository.save(prijava);
+            //prijavaRepository.flush();
         } else {
             throw new RuntimeException("Recenzent je dosegel maksimalno število prijav.");
         }
     }
 
+    @Transactional
     public void odstraniVseDodelitve() {
         // Počisti vse dodelitve iz tabele Predizbor
         predizborRepository.deleteAll();
         logger.info("Vse dodelitve so bile uspešno odstranjene iz predizbor tabele.");
+
+        // Ponastavi število prijav v predizboru na 0 za vse recenzente
+        recenzentRepository.updatePrijavePredizborToZero();
+        logger.info("Vsem recenzentom je bilo število prijav v predizboru ponastavljeno na 0.");
+
+        // Posodobi status vseh prijav na 'BREZ RECENZENTA'
+        StatusPrijav statusBrezRecenzenta = statusPrijavRepository.findByNaziv("BREZ RECENZENTA")
+                .orElseThrow(() -> new RuntimeException("Status 'BREZ RECENZENTA' ni bil najden."));
+        prijavaRepository.updateStatusPrijavTo(statusBrezRecenzenta.getId());
+        logger.info("Vsem prijavam je bil status posodobljen na 'javaRepository.upBREZ RECENZENTA'.");
     }
 }
 

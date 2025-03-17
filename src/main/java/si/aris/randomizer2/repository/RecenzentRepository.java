@@ -1,5 +1,6 @@
 package si.aris.randomizer2.repository;
 
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import si.aris.randomizer2.model.Recenzent;
@@ -28,4 +29,15 @@ public interface RecenzentRepository extends JpaRepository<Recenzent, Integer> {
     List<Recenzent> findEligibleReviewers(@Param("podpodrocjeId") int podpodrocjeId,
                                           @Param("ercId") int ercId);
 
+    @Modifying
+    @Query("UPDATE Recenzent r SET r.prijavePredizbor = 0")
+    void updatePrijavePredizborToZero();
+
+    @Query("SELECT COUNT(r) FROM Recenzent r " +
+            "JOIN RecenzentiPodrocja rp ON r.recenzentId = rp.recenzent.recenzentId " +
+            "JOIN RecenzentiErc re ON r.recenzentId = re.recenzent.recenzentId " +
+            "WHERE (rp.podpodrocjeId = :podpodrocjeId AND re.ercPodrocjeId = :ercId) " +
+            "AND r.prostaMesta > 0")
+    int countEligibleReviewers(@Param("podpodrocjeId") int podpodrocjeId,
+                               @Param("ercId") int ercId);
 }
