@@ -276,7 +276,7 @@ public class DodeljevanjeService {
             Predizbor predizbor = new Predizbor();
             predizbor.setPrijavaId(prijava.getPrijavaId());
             predizbor.setRecenzentId(recenzent.getRecenzentId());
-            predizbor.setStatus("DODELJENA");
+            predizbor.setStatus("NEOPREDELJEN");
             predizborRepository.save(predizbor);
             //predizborRepository.flush();
             recenzent.setPrijavePredizbor(recenzent.getPrijavePredizbor() + 1);

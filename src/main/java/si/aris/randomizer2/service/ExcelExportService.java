@@ -3,6 +3,7 @@ package si.aris.randomizer2.service;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.io.ByteArrayResource;
 import org.springframework.stereotype.Service;
 import si.aris.randomizer2.model.Predizbor;
 import si.aris.randomizer2.model.Prijava;
@@ -10,9 +11,11 @@ import si.aris.randomizer2.model.Recenzent;
 import si.aris.randomizer2.repository.PredizborRepository;
 import si.aris.randomizer2.repository.PrijavaRepository;
 
+import java.io.ByteArrayOutputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -21,47 +24,54 @@ public class ExcelExportService {
     private PredizborRepository predizborRepository;
     @Autowired
     private PrijavaRepository prijavaRepository;
-    public void izvozPredizborZEP() throws IOException {
-        // 1. Pridobimo vse predizbore iz baze
-        List<Predizbor> predizborList = predizborRepository.findAll();
 
-        // 2. Ustvarimo Excel dokument
+    public ByteArrayResource exportPredizborToExcel() throws IOException {
+        List<Prijava> prijave = prijavaRepository.findAll();
+        List<Predizbor> predizbor = predizborRepository.findAll();
+        Map<Integer, List<Predizbor>> predizborMap = predizbor.stream().collect(Collectors.groupingBy(Predizbor::getPrijavaId));
+
         Workbook workbook = new XSSFWorkbook();
-        Sheet sheet = workbook.createSheet("Predizbor - ZEP");
+        Sheet sheet = workbook.createSheet("Predizbor");
 
-        // 3. Nastavite glave stolpcev
         Row headerRow = sheet.createRow(0);
-        headerRow.createCell(0).setCellValue("Številka Prijave");
-        headerRow.createCell(1).setCellValue("Recenzent 1 (Šifra)");
-        headerRow.createCell(2).setCellValue("Recenzent 2 (Šifra)");
-        headerRow.createCell(3).setCellValue("Recenzent 3 (Šifra)");
-        headerRow.createCell(4).setCellValue("Recenzent 4 (Šifra)");
-        headerRow.createCell(5).setCellValue("Recenzent 5 (Šifra)");
+        String[] columns = {"ID Prijave", "Številka Prijave", "Naslov", "Vodja", "Šifra Vodje", "Podpodročje", "ERC", "Dodatno Podpodročje", "Dodatno ERC", "Interdisciplinarnost", "Partnerska Agencija 1", "Partnerska Agencija 2", "Status Prijave", "Rec1", "Rec1 - Status", "Rec2", "Rec2 - Status", "Rec3", "Rec3 - Status", "Rec4", "Rec4 - Status", "Rec5", "Rec5 - Status"};
 
-        // 4. Prehajamo skozi predizbor seznam in izpisujemo podatke
+        for (int i = 0; i < columns.length; i++) {
+            Cell cell = headerRow.createCell(i);
+            cell.setCellValue(columns[i]);
+        }
+
         int rowNum = 1;
-        for (Prijava prijava : prijavaRepository.findAll()) {
-            // Filtriramo predizbore za to prijavo
-            List<Predizbor> predizborForPrijava = predizborList.stream()
-                    .filter(p -> p.getPrijavaId() == prijava.getPrijavaId())
-                    .toList();
-
-            // Ustvarimo novo vrstico v Excelu za to prijavo
+        for (Prijava prijava : prijave) {
             Row row = sheet.createRow(rowNum++);
-            row.createCell(0).setCellValue(prijava.getStevilkaPrijave());
+            row.createCell(0).setCellValue(prijava.getPrijavaId());
+            row.createCell(1).setCellValue(prijava.getStevilkaPrijave());
+            row.createCell(2).setCellValue(prijava.getNaslov());
+            row.createCell(3).setCellValue(prijava.getVodja());
+            row.createCell(4).setCellValue(prijava.getSifraVodje());
+            row.createCell(5).setCellValue(prijava.getPodpodrocje().getNaziv());
+            row.createCell(6).setCellValue(prijava.getErcPodrocje().getKoda());
+            row.createCell(7).setCellValue(prijava.getDodatnoPodpodrocje() != null ? prijava.getDodatnoPodpodrocje().getNaziv() : "");
+            row.createCell(8).setCellValue(prijava.getDodatnoErcPodrocje() != null ? prijava.getDodatnoErcPodrocje().getKoda() : "");
+            row.createCell(9).setCellValue(prijava.isInterdisc() ? "DA" : "NE");
+            row.createCell(10).setCellValue(prijava.getPartnerskaAgencija1() != null ? prijava.getPartnerskaAgencija1() : "");
+            row.createCell(11).setCellValue(prijava.getPartnerskaAgencija2() != null ? prijava.getPartnerskaAgencija2() : "");
+            row.createCell(12).setCellValue(prijava.getStatusPrijav().getNaziv());
 
-            // Dodajamo recenzente v vrstico (tako da so v eni vrstici)
-            for (int i = 0; i < predizborForPrijava.size(); i++) {
-                // Zapišemo šifro recenzenta
-                row.createCell(i + 1).setCellValue(predizborForPrijava.get(i).getRecenzentId());
+            List<Predizbor> recenzenti = predizborMap.getOrDefault(prijava.getPrijavaId(), List.of());
+            for (int i = 0; i < Math.min(recenzenti.size(), 5); i++) {
+                row.createCell(13 + (i * 2)).setCellValue(recenzenti.get(i).getRecenzentId());
+                row.createCell(14 + (i * 2)).setCellValue(recenzenti.get(i).getStatus());
             }
         }
 
-        // 5. Shrani Excel datoteko
-        try (FileOutputStream fileOut = new FileOutputStream("predizbor_za_zeps.xlsx")) {
-            workbook.write(fileOut);
-        }
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        workbook.write(outputStream);
+        workbook.close();
+
+        return new ByteArrayResource(outputStream.toByteArray());
     }
+
     public void izvozPredizborPravilnost() throws IOException {
         // 1. Pridobimo vse predizbore iz baze
         List<Predizbor> predizborList = predizborRepository.findAll();
