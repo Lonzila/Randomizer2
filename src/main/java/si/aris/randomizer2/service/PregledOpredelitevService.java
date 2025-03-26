@@ -77,6 +77,13 @@ public class PregledOpredelitevService {
 
             if (kandidatniPari.isEmpty()) break;
 
+            // 🔍 Tukaj dodamo štetje vseh parov in njihovih ponovitev:
+            System.out.println("--- Možni pari in število pripadajočih prijav ---");
+            kandidatniPari.entrySet().stream()
+                    .sorted((e1, e2) -> Integer.compare(e2.getValue().size(), e1.getValue().size()))
+                    .forEach(e -> System.out.println("Par " + e.getKey() + " -> " + e.getValue().size() + " prijav"));
+
+
             Set<Integer> najpogostejsiPar = kandidatniPari.entrySet().stream()
                     .max(Comparator.comparingInt(e -> e.getValue().size()))
                     .map(Map.Entry::getKey)
@@ -92,6 +99,7 @@ public class PregledOpredelitevService {
             System.out.println("--- Dodelitev kroga ---");
             System.out.println("Par recenzentov: " + najpogostejsiPar);
             System.out.println("Prijave: " + prijaveZaPar);
+            System.out.println();
         }
 
         return parToPrijave;
