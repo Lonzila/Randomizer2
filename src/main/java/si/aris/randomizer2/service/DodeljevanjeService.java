@@ -209,7 +209,7 @@ public class DodeljevanjeService {
 
         //ce je interdisciplinarna prijava
         if (prijavePodpodrocja.getFirst().isInterdisc()) {
-            if (recenzentiPrimarno.size()< 2 || recenzentiDodatno.size()< 2) {
+            if (recenzentiPrimarno.size() < 2 || recenzentiDodatno.size() < 3) {
                 //logger.warn("Zmanjkalo recezenzentov za predizbor. Za primarno podpodročje jih je ostalo: " + recenzentiPrimarno.size() + " Za sekundarno podpodročje jih je ostalo: " + recenzentiDodatno.size());
             } else {
                 // Naključno premešamo seznam recenzentov za primarno in dodatno podpodrocje
@@ -220,9 +220,10 @@ public class DodeljevanjeService {
                 recenzenti.addAll(recenzentiPrimarno.subList(0, 2));
 
                 // Izberemo 2 recenzenta iz dodatnega podpodrocja
-                recenzenti.addAll(recenzentiDodatno.subList(0, 2));
+                recenzenti.addAll(recenzentiDodatno.subList(0, 3));
 
                 // Preden izberemo enega naključnega recenzenta, odstranimo tiste, ki so že izbrani v prejšnjih dveh korakih
+                /*
                 List<Recenzent> prejsnjiIzbraniRecenzenti = new ArrayList<>();
                 prejsnjiIzbraniRecenzenti.addAll(recenzentiPrimarno.subList(0, 2));
                 prejsnjiIzbraniRecenzenti.addAll(recenzentiDodatno.subList(0, 2));
@@ -236,7 +237,7 @@ public class DodeljevanjeService {
                     recenzenti.add(vsiRecenzenti.getFirst());
                 } else {
                     logger.warn("Ni več recenzentov za naključen izbor.");
-                }
+                }*/
             }
 
         } else {
