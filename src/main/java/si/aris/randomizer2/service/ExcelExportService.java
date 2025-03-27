@@ -5,11 +5,8 @@ import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.stereotype.Service;
-import si.aris.randomizer2.model.Predizbor;
-import si.aris.randomizer2.model.Prijava;
-import si.aris.randomizer2.model.Recenzent;
-import si.aris.randomizer2.repository.PredizborRepository;
-import si.aris.randomizer2.repository.PrijavaRepository;
+import si.aris.randomizer2.model.*;
+import si.aris.randomizer2.repository.*;
 
 import java.io.ByteArrayOutputStream;
 import java.io.FileOutputStream;
@@ -24,6 +21,12 @@ public class ExcelExportService {
     private PredizborRepository predizborRepository;
     @Autowired
     private PrijavaRepository prijavaRepository;
+    @Autowired
+    private RecenzentRepository recenzentRepository;
+    @Autowired
+    private PodpodrocjeRepository podpodrocjeRepository;
+    @Autowired
+    private ErcPodrocjeRepository ercPodrocjeRepository;
 
     public ByteArrayResource exportPredizborToExcel() throws IOException {
         List<Prijava> prijave = prijavaRepository.findAll();
@@ -60,7 +63,11 @@ public class ExcelExportService {
 
             List<Predizbor> recenzenti = predizborMap.getOrDefault(prijava.getPrijavaId(), List.of());
             for (int i = 0; i < Math.min(recenzenti.size(), 5); i++) {
-                row.createCell(13 + (i * 2)).setCellValue(recenzenti.get(i).getRecenzentId());
+                int recenzentId = recenzenti.get(i).getRecenzentId();
+                Recenzent recenzent = recenzentRepository.findById(recenzentId).orElse(null);
+                String sifra = recenzent != null ? String.valueOf(recenzent.getSifra()) : "NEZNANO";
+
+                row.createCell(13 + (i * 2)).setCellValue(sifra);
                 row.createCell(14 + (i * 2)).setCellValue(recenzenti.get(i).getStatus());
             }
         }
@@ -97,6 +104,56 @@ public class ExcelExportService {
         try (FileOutputStream fileOut = new FileOutputStream("predizbor_pravilnost.xlsx")) {
             workbook.write(fileOut);
         }
+    }
+
+    public ByteArrayResource exportRecenzentiWithAreasToExcel() throws IOException {
+        List<Recenzent> recenzenti = recenzentRepository.findAll();
+
+        Workbook workbook = new XSSFWorkbook();
+        Sheet sheet = workbook.createSheet("Recenzenti");
+        Row headerRow = sheet.createRow(0);
+        String[] headers = {"Šifra", "Ime", "Priimek", "Tip", "Koda", "Naziv"};
+        for (int i = 0; i < headers.length; i++) {
+            headerRow.createCell(i).setCellValue(headers[i]);
+        }
+
+        int rowNum = 1;
+
+        for (Recenzent rec : recenzenti) {
+            for (RecenzentiPodrocja rp : rec.getRecenzentiPodrocja()) {
+                Podpodrocje pod = podpodrocjeRepository.findById(rp.getPodpodrocjeId()).orElse(null);
+                if (pod != null) {
+                    Row row = sheet.createRow(rowNum++);
+                    row.createCell(0).setCellValue(rec.getSifra());
+                    row.createCell(1).setCellValue(rec.getIme());
+                    row.createCell(2).setCellValue(rec.getPriimek());
+                    row.createCell(3).setCellValue("Podpodročje");
+                    row.createCell(4).setCellValue(pod.getKoda());
+                    row.createCell(5).setCellValue(pod.getNaziv());
+                }
+            }
+
+            for (RecenzentiErc re : rec.getRecenzentiErc()) {
+                ErcPodrocje erc = ercPodrocjeRepository
+                        .findById(Long.valueOf(re.getErcPodrocjeId()))
+                        .orElse(null);
+                if (erc != null) {
+                    Row row = sheet.createRow(rowNum++);
+                    row.createCell(0).setCellValue(rec.getSifra());
+                    row.createCell(1).setCellValue(rec.getIme());
+                    row.createCell(2).setCellValue(rec.getPriimek());
+                    row.createCell(3).setCellValue("ERC");
+                    row.createCell(4).setCellValue(erc.getKoda());
+                    row.createCell(5).setCellValue("");
+                }
+            }
+        }
+
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        workbook.write(outputStream);
+        workbook.close();
+
+        return new ByteArrayResource(outputStream.toByteArray());
     }
 }
 

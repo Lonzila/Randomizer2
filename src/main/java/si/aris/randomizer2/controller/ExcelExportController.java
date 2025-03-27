@@ -40,4 +40,16 @@ public class ExcelExportController {
             return "Napaka pri izvozu datoteke za pravilnost!";
         }
     }
+    @GetMapping("/recenzenti-areas")
+    public ResponseEntity<ByteArrayResource> exportRecenzentiWithAreas() {
+        try {
+            ByteArrayResource resource = excelExportService.exportRecenzentiWithAreasToExcel();
+            return ResponseEntity.ok()
+                    .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=recenzenti_areas.xlsx")
+                    .contentType(MediaType.APPLICATION_OCTET_STREAM)
+                    .body(resource);
+        } catch (IOException e) {
+            return ResponseEntity.internalServerError().build();
+        }
+    }
 }
