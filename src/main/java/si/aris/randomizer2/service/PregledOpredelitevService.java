@@ -1,11 +1,10 @@
 package si.aris.randomizer2.service;
-
-import org.apache.commons.csv.CSVFormat;
-import org.apache.commons.csv.CSVParser;
-import org.apache.commons.csv.CSVRecord;
+import org.apache.poi.ss.usermodel.*;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
 import si.aris.randomizer2.model.*;
+import si.aris.randomizer2.repository.PredizborRepository;
 import si.aris.randomizer2.repository.PrijavaRepository;
 import si.aris.randomizer2.repository.RecenzentRepository;
 
@@ -18,26 +17,43 @@ public class PregledOpredelitevService {
 
     private final PrijavaRepository prijavaRepository;
     private final RecenzentRepository recenzentRepository;
+    private final PredizborRepository predizborRepository;
 
-    public PregledOpredelitevService(PrijavaRepository prijavaRepository, RecenzentRepository recenzentRepository) {
+    public PregledOpredelitevService(PrijavaRepository prijavaRepository, RecenzentRepository recenzentRepository, PredizborRepository predizborRepository) {
         this.prijavaRepository = prijavaRepository;
         this.recenzentRepository = recenzentRepository;
+        this.predizborRepository = predizborRepository;
     }
 
-    public Map<Set<Integer>, List<Integer>> izracunajNajboljPogostePare(Resource csvResource) throws Exception {
+    public Map<Set<Integer>, List<Integer>> izracunajNajboljPogostePare(Resource excelResource) throws Exception {
         Map<Integer, List<RecenzentEntry>> prijavaToRecenzenti = new HashMap<>();
 
-        // 1. Preberi CSV in napolni strukturo
-        CSVParser parser = CSVFormat.DEFAULT.withFirstRecordAsHeader().parse(new InputStreamReader(csvResource.getInputStream()));
-        for (CSVRecord record : parser) {
-            int prijavaId = Integer.parseInt(record.get("prijava_id"));
-            int recenzentId = Integer.parseInt(record.get("recenzent_id"));
-            String status = record.get("status").trim().toUpperCase();
+        // 1. Preberi Excel datoteko in napolni strukturo
+        try (Workbook workbook = new XSSFWorkbook(excelResource.getInputStream())) {
+            Sheet sheet = workbook.getSheetAt(0); // prvi list
+            Iterator<Row> rowIterator = sheet.iterator();
 
-            prijavaToRecenzenti
-                    .computeIfAbsent(prijavaId, k -> new ArrayList<>())
-                    .add(new RecenzentEntry(recenzentId, status));
+            // Preskoči glavo
+            if (rowIterator.hasNext()) rowIterator.next();
+
+            while (rowIterator.hasNext()) {
+                Row row = rowIterator.next();
+                Cell prijavaCell = row.getCell(1); // stolpec 'prijava_id'
+                Cell recenzentCell = row.getCell(2); // stolpec 'recenzent_id'
+                Cell statusCell = row.getCell(3); // stolpec 'status'
+
+                if (prijavaCell == null || recenzentCell == null || statusCell == null) continue;
+
+                int prijavaId = (int) prijavaCell.getNumericCellValue();
+                int recenzentId = (int) recenzentCell.getNumericCellValue();
+                String status = statusCell.getStringCellValue().trim().toUpperCase();
+
+                prijavaToRecenzenti
+                        .computeIfAbsent(prijavaId, k -> new ArrayList<>())
+                        .add(new RecenzentEntry(recenzentId, status));
+            }
         }
+
 
         Map<Integer, Prijava> prijaveMap = prijavaRepository.findAll().stream()
                 .collect(Collectors.toMap(Prijava::getPrijavaId, p -> p));
@@ -84,18 +100,36 @@ public class PregledOpredelitevService {
                     .forEach(e -> System.out.println("Par " + e.getKey() + " -> " + e.getValue().size() + " prijav"));
 
 
-            Set<Integer> najpogostejsiPar = kandidatniPari.entrySet().stream()
-                    .max(Comparator.comparingInt(e -> e.getValue().size()))
-                    .map(Map.Entry::getKey)
-                    .orElse(null);
+            Optional<Map.Entry<Set<Integer>, List<Integer>>> izbran = kandidatniPari.entrySet().stream()
+                    .sorted((e1, e2) -> Integer.compare(e2.getValue().size(), e1.getValue().size()))
+                    .filter(e -> imaProstaMesta(e.getKey(), e.getValue().size()))
+                    .findFirst();
 
-            if (najpogostejsiPar == null) break;
+            if (izbran.isEmpty()) break;
 
-            List<Integer> prijaveZaPar = kandidatniPari.get(najpogostejsiPar);
+            Set<Integer> najpogostejsiPar = izbran.get().getKey();
+            List<Integer> prijaveZaPar = izbran.get().getValue();
+
             parToPrijave.put(najpogostejsiPar, prijaveZaPar);
             zeDodeljene.addAll(prijaveZaPar);
 
-            // 🖨️ LOG: izpiši v konzolo kaj je bilo dodeljeno
+            najpogostejsiPar.forEach(id -> recenzentRepository.findById(id).ifPresent(r -> {
+                r.setProstaMesta(r.getProstaMesta() - prijaveZaPar.size());
+                recenzentRepository.save(r);
+            }));
+
+            prijaveZaPar.forEach(prijavaId -> {
+                prijavaToRecenzenti.get(prijavaId).forEach(entry -> {
+                    if (najpogostejsiPar.contains(entry.recenzentId)) {
+                        Optional<Predizbor> pOpt = predizborRepository.findByPrijavaIdAndRecenzentId(prijavaId, entry.recenzentId);
+                        pOpt.ifPresent(pred -> {
+                            pred.setStatus("V OCENJEVANJU");
+                            predizborRepository.save(pred);
+                        });
+                    }
+                });
+            });
+
             System.out.println("--- Dodelitev kroga ---");
             System.out.println("Par recenzentov: " + najpogostejsiPar);
             System.out.println("Prijave: " + prijaveZaPar);
@@ -105,6 +139,18 @@ public class PregledOpredelitevService {
         return parToPrijave;
     }
 
+
+    private boolean imaProstaMesta(Set<Integer> par, int potrebnaMesta) {
+        for (Integer id : par) {
+            Optional<Recenzent> rec = recenzentRepository.findById(id);
+            if (rec.isEmpty() || rec.get().getProstaMesta() < potrebnaMesta) {
+                System.out.println("⚠️ Recenzent " + id + " nima dovolj prostora (" +
+                        rec.map(Recenzent::getProstaMesta).orElse(0) + "/" + potrebnaMesta + ")");
+                return false;
+            }
+        }
+        return true;
+    }
     private Boolean dolociPrimarnost(Prijava prijava, Recenzent recenzent) {
         boolean imaPrimarno = recenzent.getRecenzentiPodrocja().stream()
                 .anyMatch(rp -> rp.getPodpodrocjeId() == prijava.getPodpodrocje().getPodpodrocjeId())

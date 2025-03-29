@@ -35,7 +35,7 @@ public class PregledOpredelitveController {
             return ResponseEntity.ok(rezultat);
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Napaka pri obdelavi CSV datoteke: " + e.getMessage());
+                    .body("Napaka pri obdelavi datoteke: " + e.getMessage());
         }
     }
 }
