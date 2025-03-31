@@ -13,6 +13,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
@@ -80,27 +81,30 @@ public class ExcelExportService {
     }
 
     public void izvozPredizborPravilnost() throws IOException {
-        // 1. Pridobimo vse predizbore iz baze
         List<Predizbor> predizborList = predizborRepository.findAll();
 
-        // 2. Ustvarimo Excel dokument
         Workbook workbook = new XSSFWorkbook();
         Sheet sheet = workbook.createSheet("Predizbor - Pravilnost");
 
-        // 3. Nastavite glave stolpcev
         Row headerRow = sheet.createRow(0);
-        headerRow.createCell(0).setCellValue("Številka Prijave");
-        headerRow.createCell(1).setCellValue("Recenzent ID (Šifra)");
+        headerRow.createCell(0).setCellValue("Številka prijave");
+        headerRow.createCell(1).setCellValue("Šifra recenzenta");
 
-        // 4. Prehajamo skozi predizbor seznam in izpisujemo podatke
         int rowNum = 1;
         for (Predizbor predizbor : predizborList) {
+            Optional<Prijava> prijavaOpt = prijavaRepository.findById(predizbor.getPrijavaId());
+            Optional<Recenzent> recenzentOpt = recenzentRepository.findById(predizbor.getRecenzentId());
+
+            if (prijavaOpt.isEmpty() || recenzentOpt.isEmpty()) continue;
+
+            Prijava prijava = prijavaOpt.get();
+            Recenzent recenzent = recenzentOpt.get();
+
             Row row = sheet.createRow(rowNum++);
-            row.createCell(0).setCellValue(predizbor.getPrijavaId());
-            row.createCell(1).setCellValue(predizbor.getRecenzentId());
+            row.createCell(0).setCellValue(prijava.getStevilkaPrijave());
+            row.createCell(1).setCellValue(recenzent.getSifra());
         }
 
-        // 5. Shrani Excel datoteko
         try (FileOutputStream fileOut = new FileOutputStream("predizbor_pravilnost.xlsx")) {
             workbook.write(fileOut);
         }

@@ -141,7 +141,7 @@ public class DodeljevanjeService {
         }
 
         // Poiščemo vse recenzente, ki so povezani s podpodročji teh prijav
-        List<Recenzent> vsiRecenzenti = new ArrayList<>();
+        Set<Recenzent> vsiRecenzenti = new HashSet<>();
 
         vsiRecenzenti.addAll(recenzentRepository.findEligibleReviewers(primarnoPodpodrocje.getPodpodrocjeId(), primarnoErcPodrocje.getErcId()));
 
@@ -169,11 +169,13 @@ public class DodeljevanjeService {
         // Filtriramo recenzente, ki so že sprejeli 10 prijav 6 + 4 = 10
         vsiRecenzenti.removeIf(r -> r.getPrijavePredizbor() + prijavePodpodrocja.size() > 10 );
 
+        List<Recenzent> vsiRecenzentiList = new ArrayList<>(vsiRecenzenti);
+
         // Ločimo recenzente na primarno in dodatno kombinacijo (podpodrocje + ercPodrocje)
         List<Recenzent> recenzentiPrimarno = new ArrayList<>();
         List<Recenzent> recenzentiDodatno = new ArrayList<>();
 
-        for (Recenzent recenzent : vsiRecenzenti) {
+        for (Recenzent recenzent : vsiRecenzentiList) {
             boolean hasMatchingPodpodrocje = recenzent.getRecenzentiPodrocja().stream()
                     .anyMatch(rp -> rp.getPodpodrocjeId() == primarnoPodpodrocje.getPodpodrocjeId());
 
@@ -200,9 +202,9 @@ public class DodeljevanjeService {
                 recenzentiDodatno.add(recenzent);
             }
         }
-        if (vsiRecenzenti.size() < 5) {
+        if (vsiRecenzentiList.size() < 5) {
             logger.warn("Premalo recenzentov! Najdenih: {} za kombinacijo Podpodrocje={}, ERC={}.",
-                    vsiRecenzenti.size(), primarnoPodpodrocje.getNaziv(), primarnoErcPodrocje.getKoda());
+                    vsiRecenzentiList.size(), primarnoPodpodrocje.getNaziv(), primarnoErcPodrocje.getKoda());
             logger.info("Število recenzentov za primarno podpodročje: {}", recenzentiPrimarno.size());
             logger.info("Število recenzentov za dodatno podpodročje: {}", recenzentiDodatno.size());
         }
@@ -219,7 +221,7 @@ public class DodeljevanjeService {
                 // Izberemo 2 recenzenta iz primarnega podpodrocja
                 recenzenti.addAll(recenzentiPrimarno.subList(0, 2));
 
-                // Izberemo 2 recenzenta iz dodatnega podpodrocja
+                // Izberemo 3 recenzenta iz dodatnega podpodrocja
                 recenzenti.addAll(recenzentiDodatno.subList(0, 3));
 
                 // Preden izberemo enega naključnega recenzenta, odstranimo tiste, ki so že izbrani v prejšnjih dveh korakih
@@ -241,14 +243,15 @@ public class DodeljevanjeService {
             }
 
         } else {
+
             if(vsiRecenzenti.size()<5) {
                 logger.warn("Zmanjkalo recezenzentov za primarno podpodročje: " + primarnoPodpodrocje);
-                Collections.shuffle(vsiRecenzenti);
-                recenzenti.addAll(vsiRecenzenti.subList(0, Math.min(5, vsiRecenzenti.size())));
+                Collections.shuffle(vsiRecenzentiList);
+                recenzenti.addAll(vsiRecenzentiList.subList(0, Math.min(5, vsiRecenzenti.size())));
             } else {
                 // Za ne-interdisciplinarne prijave izberemo 5 naključnih recenzentov
-                Collections.shuffle(vsiRecenzenti);
-                recenzenti.addAll(vsiRecenzenti.subList(0, 5));
+                Collections.shuffle(vsiRecenzentiList);
+                recenzenti.addAll(vsiRecenzentiList.subList(0, 5));
             }
         }
 
@@ -290,7 +293,9 @@ public class DodeljevanjeService {
             prijavaRepository.save(prijava);
             //prijavaRepository.flush();
         } else {
-            throw new RuntimeException("Recenzent je dosegel maksimalno število prijav.");
+            System.out.println("Število ki jih ima v predizboru + 1:" + recenzent.getPrijavePredizbor() + " 1");
+            throw new RuntimeException("Recenzent " + recenzent.getRecenzentId() +
+                    " je dosegel maksimalno število prijav (" + recenzent.getPrijavePredizbor() + ").");
         }
     }
 

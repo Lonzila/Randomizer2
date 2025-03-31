@@ -61,6 +61,7 @@ public class PregledOpredelitevService {
         // Pomožni objekt za vsak par in pripadajoče prijave
         Map<Set<Integer>, List<Integer>> parToPrijave = new LinkedHashMap<>();
         Set<Integer> zeDodeljene = new HashSet<>();
+        Set<String> zeDodeljeniPari = new HashSet<>();
 
         while (true) {
             Map<Set<Integer>, List<Integer>> kandidatniPari = new HashMap<>();
@@ -93,7 +94,7 @@ public class PregledOpredelitevService {
 
             if (kandidatniPari.isEmpty()) break;
 
-            // 🔍 Tukaj dodamo štetje vseh parov in njihovih ponovitev:
+            // Tukaj dodamo štetje vseh parov in njihovih ponovitev:
             System.out.println("--- Možni pari in število pripadajočih prijav ---");
             kandidatniPari.entrySet().stream()
                     .sorted((e1, e2) -> Integer.compare(e2.getValue().size(), e1.getValue().size()))
@@ -125,6 +126,7 @@ public class PregledOpredelitevService {
                         pOpt.ifPresent(pred -> {
                             pred.setStatus("V OCENJEVANJU");
                             predizborRepository.save(pred);
+                            zeDodeljeniPari.add(prijavaId + ":" + entry.recenzentId);
                         });
                     }
                 });
@@ -136,6 +138,21 @@ public class PregledOpredelitevService {
             System.out.println();
         }
 
+        // 6. Na koncu: Za vse preostale "OPREDELJEN Z DA", ki niso bili vključeni v "V OCENJEVANJU"
+        prijavaToRecenzenti.forEach((prijavaId, seznam) -> {
+            seznam.forEach(rec -> {
+                if ("OPREDELJEN Z DA".equalsIgnoreCase(rec.status)) {
+                    String key = prijavaId + ":" + rec.recenzentId;
+                    if (!zeDodeljeniPari.contains(key)) {
+                        Optional<Predizbor> pOpt = predizborRepository.findByPrijavaIdAndRecenzentId(prijavaId, rec.recenzentId);
+                        pOpt.ifPresent(pred -> {
+                            pred.setStatus("OPREDELJENO Z DA");
+                            predizborRepository.save(pred);
+                        });
+                    }
+                }
+            });
+        });
         return parToPrijave;
     }
 
