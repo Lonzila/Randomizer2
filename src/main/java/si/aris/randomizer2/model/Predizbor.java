@@ -28,4 +28,7 @@ public class Predizbor {
     @Column(nullable = false, length = 50)
     private String status = "NEOPREDELJEN";
 
+    @Column(name = "primarni", nullable = false)
+    private boolean primarni = true;
+
 }

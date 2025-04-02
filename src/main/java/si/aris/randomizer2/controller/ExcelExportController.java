@@ -20,14 +20,14 @@ public class ExcelExportController {
     private ExcelExportService excelExportService;
 
     // HTTP GET zahteva za izvoz predizbora v ZEP obliko
-    @GetMapping("/predizbor")
+    /*@GetMapping("/predizbor")
     public ResponseEntity<ByteArrayResource> exportPredizbor() throws IOException {
         ByteArrayResource resource = excelExportService.exportPredizborToExcel();
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=predizbor.xlsx")
                 .contentType(MediaType.APPLICATION_OCTET_STREAM)
                 .body(resource);
-    }
+    }*/
 
     // HTTP GET zahteva za izvoz predizbora za pravilnost
     @GetMapping("/izvoz-predizbor-pravilnost")

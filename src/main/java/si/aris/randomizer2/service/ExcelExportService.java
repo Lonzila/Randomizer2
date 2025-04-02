@@ -14,6 +14,7 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -29,7 +30,7 @@ public class ExcelExportService {
     @Autowired
     private ErcPodrocjeRepository ercPodrocjeRepository;
 
-    public ByteArrayResource exportPredizborToExcel() throws IOException {
+    public ByteArrayResource exportPredizborToExcel(Set<Integer> prijaveZFallbackom) throws IOException {
         List<Prijava> prijave = prijavaRepository.findAll();
         List<Predizbor> predizbor = predizborRepository.findAll();
         Map<Integer, List<Predizbor>> predizborMap = predizbor.stream().collect(Collectors.groupingBy(Predizbor::getPrijavaId));
@@ -38,7 +39,7 @@ public class ExcelExportService {
         Sheet sheet = workbook.createSheet("Predizbor");
 
         Row headerRow = sheet.createRow(0);
-        String[] columns = {"ID Prijave", "Številka Prijave", "Naslov", "Vodja", "Šifra Vodje", "Podpodročje", "ERC", "Dodatno Podpodročje", "Dodatno ERC", "Interdisciplinarnost", "Partnerska Agencija 1", "Partnerska Agencija 2", "Status Prijave", "Rec1", "Rec1 - Status", "Rec2", "Rec2 - Status", "Rec3", "Rec3 - Status", "Rec4", "Rec4 - Status", "Rec5", "Rec5 - Status"};
+        String[] columns = {"ID Prijave", "Številka Prijave", "Naslov", "Vodja", "Šifra Vodje", "Podpodročje", "ERC", "Dodatno Podpodročje", "Dodatno ERC", "Interdisciplinarnost", "Partnerska Agencija 1", "Partnerska Agencija 2", "Status Prijave", "Rec1", "Rec1 - Status", "Rec2", "Rec2 - Status", "Rec3", "Rec3 - Status", "Rec4", "Rec4 - Status", "Rec5", "Rec5 - Status, Fallback Podpodročje - brez ERC"};
 
         for (int i = 0; i < columns.length; i++) {
             Cell cell = headerRow.createCell(i);
@@ -63,15 +64,42 @@ public class ExcelExportService {
             row.createCell(12).setCellValue(prijava.getStatusPrijav().getNaziv());
 
             List<Predizbor> recenzenti = predizborMap.getOrDefault(prijava.getPrijavaId(), List.of());
-            for (int i = 0; i < Math.min(recenzenti.size(), 5); i++) {
-                int recenzentId = recenzenti.get(i).getRecenzentId();
-                Recenzent recenzent = recenzentRepository.findById(recenzentId).orElse(null);
-                String sifra = recenzent != null ? String.valueOf(recenzent.getSifra()) : "NEZNANO";
 
-                row.createCell(13 + (i * 2)).setCellValue(sifra);
-                row.createCell(14 + (i * 2)).setCellValue(recenzenti.get(i).getStatus());
+            if (prijava.isInterdisc()) {
+                List<Predizbor> primarni = recenzenti.stream().filter(Predizbor::isPrimarni).collect(Collectors.toList());
+                List<Predizbor> sekundarni = recenzenti.stream().filter(p -> !p.isPrimarni()).collect(Collectors.toList());
+
+                for (int i = 0; i < Math.min(primarni.size(), 2); i++) {
+                    int recenzentId = primarni.get(i).getRecenzentId();
+                    Recenzent rec = recenzentRepository.findById(recenzentId).orElse(null);
+                    String sifra = rec != null ? String.valueOf(rec.getSifra()) : "NEZNANO";
+
+                    row.createCell(13 + (i * 2)).setCellValue(sifra);
+                    row.createCell(14 + (i * 2)).setCellValue(primarni.get(i).getStatus());
+                }
+
+                for (int i = 0; i < Math.min(sekundarni.size(), 3); i++) {
+                    int recenzentId = sekundarni.get(i).getRecenzentId();
+                    Recenzent rec = recenzentRepository.findById(recenzentId).orElse(null);
+                    String sifra = rec != null ? String.valueOf(rec.getSifra()) : "NEZNANO";
+
+                    row.createCell(17 + (i * 2)).setCellValue(sifra);
+                    row.createCell(18 + (i * 2)).setCellValue(sekundarni.get(i).getStatus());
+                }
+            } else {
+                for (int i = 0; i < Math.min(recenzenti.size(), 5); i++) {
+                    int recenzentId = recenzenti.get(i).getRecenzentId();
+                    Recenzent rec = recenzentRepository.findById(recenzentId).orElse(null);
+                    String sifra = rec != null ? String.valueOf(rec.getSifra()) : "NEZNANO";
+
+                    row.createCell(13 + (i * 2)).setCellValue(sifra);
+                    row.createCell(14 + (i * 2)).setCellValue(recenzenti.get(i).getStatus());
+                }
             }
+            String fallbackTag = prijaveZFallbackom.contains(prijava.getPrijavaId()) ? "DA" : "NE";
+            row.createCell(23).setCellValue(fallbackTag);
         }
+
 
         ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
         workbook.write(outputStream);

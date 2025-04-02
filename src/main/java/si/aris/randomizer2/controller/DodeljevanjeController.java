@@ -1,6 +1,7 @@
 package si.aris.randomizer2.controller;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.ui.Model;
@@ -17,16 +18,20 @@ public class DodeljevanjeController {
     private DodeljevanjeService dodeljevanjeService;
 
     @PostMapping("/predizbor")
-    public ResponseEntity<String> predizbor() {
+    public ResponseEntity<ByteArrayResource> predizbor() {
         try {
             System.out.println("Začel izvajati predizbor");
-            dodeljevanjeService.predizbor();
+            ByteArrayResource datoteka = dodeljevanjeService.predizbor();  // nova metoda v service
             System.out.println("Predizbor zaključen");
-            return ResponseEntity.ok("Predizbor uspešno zaključen.");
+
+            return ResponseEntity.ok()
+                    .header("Content-Disposition", "attachment; filename=predizbor.xlsx")
+                    .header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+                    .body(datoteka);
+
         } catch (Exception e) {
             e.printStackTrace();  // Izpiši natančne informacije o napaki
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Napaka pri dodeljevanju recenzentov: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
 
