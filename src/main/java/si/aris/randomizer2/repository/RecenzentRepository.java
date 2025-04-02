@@ -29,6 +29,12 @@ public interface RecenzentRepository extends JpaRepository<Recenzent, Integer> {
     List<Recenzent> findEligibleReviewers(@Param("podpodrocjeId") int podpodrocjeId,
                                           @Param("ercId") int ercId);
 
+    @Query("SELECT r FROM Recenzent r " +
+            "JOIN RecenzentiPodrocja rp ON r.recenzentId = rp.recenzent.recenzentId " +
+            "WHERE rp.podpodrocjeId = :podpodrocjeId " +
+            "AND r.prostaMesta > 0")
+    List<Recenzent> findEligibleByPodpodrocjeOnly(@Param("podpodrocjeId") int podpodrocjeId);
+
     @Modifying
     @Query("UPDATE Recenzent r SET r.prijavePredizbor = 0")
     void updatePrijavePredizborToZero();

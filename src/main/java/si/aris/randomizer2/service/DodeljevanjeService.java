@@ -110,7 +110,7 @@ public class DodeljevanjeService {
 
     private void dodeliRecenzenteZaSkupino(List<Prijava> prijaveSkupine) {
         Map<Integer, Boolean> recenzentJePrimarni  = new HashMap<>();
-        List<Recenzent> recenzenti = pridobiPrimerneRecenzenteZaSkupino(prijaveSkupine, recenzentJePrimarni);
+        Set<Recenzent> recenzenti = pridobiPrimerneRecenzenteZaSkupino(prijaveSkupine, recenzentJePrimarni);
 
         for (Prijava prijava : prijaveSkupine) {
             for (Recenzent recenzent : recenzenti) {
@@ -120,10 +120,27 @@ public class DodeljevanjeService {
         }
     }
 
-    private List<Recenzent> pridobiPrimerneRecenzenteZaSkupino(List<Prijava> prijavePodpodrocja,
+    private Set<Recenzent> filtrirajRecenzente(Set<Recenzent> kandidati, Set<Integer> prijaveIds, Set<String> drzaveZaIzlocitev) {
+        // Izloči po COI
+        List<Integer> izloceniCoi = izloceniCOIRepository.findByPrijavaId(new ArrayList<>(prijaveIds))
+                .stream().map(IzloceniCOI::getRecenzentId).collect(Collectors.toList());
+
+        // Izloči po osebnih
+        List<Integer> izloceniOsebni = izloceniOsebniRepository.findByPrijavaId(new ArrayList<>(prijaveIds))
+                .stream().map(IzloceniOsebni::getRecenzentId).collect(Collectors.toList());
+
+        return kandidati.stream()
+                .filter(r -> !izloceniCoi.contains(r.getRecenzentId()))
+                .filter(r -> !izloceniOsebni.contains(r.getRecenzentId()))
+                .filter(r -> !drzaveZaIzlocitev.contains(r.getDrzava()))
+                .filter(r -> r.getPrijavePredizbor() + prijaveIds.size() <= 10)
+                .collect(Collectors.toSet());
+    }
+
+    private Set<Recenzent> pridobiPrimerneRecenzenteZaSkupino(List<Prijava> prijavePodpodrocja,
                                                                Map<Integer, Boolean> recenzentJePrimarni) {
         // Seznam recenzentov, ki ustrezajo za vse prijave v skupini
-        List<Recenzent> recenzenti = new ArrayList<>();
+        Set<Recenzent> recenzenti = new HashSet<>();
 
         // Prvo pridobimo vse države, COI in osebne razloge, ki se pojavljajo v tej skupini prijav
         Set<String> vseDrzave = new HashSet<>();
@@ -157,32 +174,16 @@ public class DodeljevanjeService {
             vsiRecenzenti.addAll(recenzentRepository.findEligibleReviewers(dodatnoPodpodrocje.getPodpodrocjeId(), dodatnoErcPodrocje.getErcId()));
         }
 
+        vsiRecenzenti = filtrirajRecenzente(vsiRecenzenti, vsePrijaveIds, vseDrzave);
 
-        //izločimo recenzente, ki imajo kakršnekoli konflikte
-        List<IzloceniCOI> izloceniRecenzenti = izloceniCOIRepository.findByPrijavaId(new ArrayList<>(vsePrijaveIds));
-        vsiRecenzenti.removeIf(r -> izloceniRecenzenti.contains(r.getRecenzentId()));
+        Set<Integer> zeUporabljeni = vsiRecenzenti.stream().map(Recenzent::getRecenzentId).collect(Collectors.toSet());
 
-        //izločimo recenzente z osebnim konfliktom
-        List<IzloceniOsebni> izloceniOsebni = izloceniOsebniRepository.findByPrijavaId(new ArrayList<>(vsePrijaveIds));
-        vsiRecenzenti.removeIf(r -> izloceniOsebni.stream().anyMatch(osebni -> osebni.getRecenzentId() == r.getRecenzentId()));
-
-        //izločimo recenzente iz držav partnerskih agencij
-        vsiRecenzenti.removeIf(r -> vseDrzave.contains(r.getDrzava()));
-
-        // Preverimo, ali imajo recenzenti še prosta mesta, v bistvu ne rabim, ker imam samo predizbor in pa preverjam že v queryju v findEligibleReviewers.
-        //Pomembno za kasnejše krogec
-        //vsiRecenzenti.removeIf(r -> r.getProstaMesta() < prijavePodpodrocja.size());
-
-        // Filtriramo recenzente, ki so že sprejeli 10 prijav 6 + 4 = 10
-        vsiRecenzenti.removeIf(r -> r.getPrijavePredizbor() + prijavePodpodrocja.size() > 10 );
-
-        List<Recenzent> vsiRecenzentiList = new ArrayList<>(vsiRecenzenti);
-
-        // Ločimo recenzente na primarno in dodatno kombinacijo (podpodrocje + ercPodrocje)
+        Set<Recenzent> vsiRecenzentiList = new HashSet<>(vsiRecenzenti);
         List<Recenzent> recenzentiPrimarnoPolno = new ArrayList<>();
         List<Recenzent> recenzentiPrimarnoSamoPodpodrocje = new ArrayList<>();
         List<Recenzent> recenzentiDodatnoPolno = new ArrayList<>();
         List<Recenzent> recenzentiDodatnoSamoPodpodrocje = new ArrayList<>();
+
 
         for (Recenzent r : vsiRecenzentiList) {
             boolean primarnoMatchP = r.getRecenzentiPodrocja().stream().anyMatch(rp -> rp.getPodpodrocjeId() == primarnoPodpodrocje.getPodpodrocjeId());
@@ -192,10 +193,8 @@ public class DodeljevanjeService {
             boolean dodatnoMatchE = dodatnoErcPodrocje != null && r.getRecenzentiErc().stream().anyMatch(re -> re.getErcPodrocjeId() == dodatnoErcPodrocje.getErcId());
 
             if (primarnoMatchP && primarnoMatchE) recenzentiPrimarnoPolno.add(r);
-            else if (primarnoMatchP) recenzentiPrimarnoSamoPodpodrocje.add(r);
 
             if (dodatnoMatchP && dodatnoMatchE) recenzentiDodatnoPolno.add(r);
-            else if (dodatnoMatchP) recenzentiDodatnoSamoPodpodrocje.add(r);
         }
         boolean interdisc = prijavePodpodrocja.getFirst().isInterdisc();
 
@@ -208,20 +207,50 @@ public class DodeljevanjeService {
 
         //ce je interdisciplinarna prijava
         if (interdisc) {
-            List<Recenzent> primarniIzbrani = new ArrayList<>();
-            List<Recenzent> dodatniIzbrani = new ArrayList<>();
+            if (recenzentiPrimarnoPolno.size() < 2) {
+                Set<Recenzent> fallbackPrimarno = new HashSet<>(recenzentRepository.findEligibleByPodpodrocjeOnly(primarnoPodpodrocje.getPodpodrocjeId()));
+                fallbackPrimarno.removeIf(r -> zeUporabljeni.contains(r.getRecenzentId()));
+                fallbackPrimarno = filtrirajRecenzente(fallbackPrimarno, vsePrijaveIds, vseDrzave);
+                for (Recenzent r : fallbackPrimarno) {
+                    if (!recenzentiPrimarnoPolno.contains(r)) {
+                        recenzentiPrimarnoSamoPodpodrocje.add(r);
+                    }
+                }
+            }
+            if (recenzentiDodatnoPolno.size() < 3) {
+                Set<Recenzent> fallbackDodatno = new HashSet<>(recenzentRepository.findEligibleByPodpodrocjeOnly(dodatnoPodpodrocje.getPodpodrocjeId()));
+                fallbackDodatno.removeIf(r -> zeUporabljeni.contains(r.getRecenzentId()));
+                fallbackDodatno = filtrirajRecenzente(fallbackDodatno, vsePrijaveIds, vseDrzave);
+                for (Recenzent r : fallbackDodatno) {
+                    if (!recenzentiDodatnoPolno.contains(r)) {
+                        recenzentiDodatnoSamoPodpodrocje.add(r);
+                    }
+                }
+            }
+        } else if (recenzentiPrimarnoPolno.size() < 5) {
+            Set<Recenzent> fallback = new HashSet<>(recenzentRepository.findEligibleByPodpodrocjeOnly(primarnoPodpodrocje.getPodpodrocjeId()));
+            fallback.removeIf(r -> zeUporabljeni.contains(r.getRecenzentId()));
+            fallback = filtrirajRecenzente(fallback, vsePrijaveIds, vseDrzave);
+            for (Recenzent r : fallback) {
+                if (!recenzentiPrimarnoPolno.contains(r)) {
+                    recenzentiPrimarnoSamoPodpodrocje.add(r);
+                }
+            }
+        }
+
+        if (interdisc) {
+            Set<Recenzent> primarniIzbrani = new HashSet<>();
+            Set<Recenzent> dodatniIzbrani = new HashSet<>();
 
             Collections.shuffle(recenzentiPrimarnoPolno);
             Collections.shuffle(recenzentiPrimarnoSamoPodpodrocje);
             Collections.shuffle(recenzentiDodatnoPolno);
             Collections.shuffle(recenzentiDodatnoSamoPodpodrocje);
 
-            // najprej poskusi iz polnega ujemanja
             int manjkajociPrimarni = 2;
             primarniIzbrani.addAll(recenzentiPrimarnoPolno.subList(0, Math.min(2, recenzentiPrimarnoPolno.size())));
             manjkajociPrimarni -= primarniIzbrani.size();
 
-            // če jih ni dovolj, dodaj iz fallback
             if (manjkajociPrimarni > 0) {
                 primarniIzbrani.addAll(recenzentiPrimarnoSamoPodpodrocje.subList(0, Math.min(manjkajociPrimarni, recenzentiPrimarnoSamoPodpodrocje.size())));
             }
@@ -238,9 +267,8 @@ public class DodeljevanjeService {
             recenzenti.addAll(dodatniIzbrani);
             for (Recenzent r : primarniIzbrani) recenzentJePrimarni.put(r.getRecenzentId(), true);
             for (Recenzent r : dodatniIzbrani) recenzentJePrimarni.put(r.getRecenzentId(), false);
-        }
-        else {
-            List<Recenzent> primarniIzbrani = new ArrayList<>();
+        } else {
+            Set<Recenzent> primarniIzbrani = new HashSet<>();
 
             Collections.shuffle(recenzentiPrimarnoPolno);
             Collections.shuffle(recenzentiPrimarnoSamoPodpodrocje);
@@ -260,10 +288,27 @@ public class DodeljevanjeService {
         if (interdisc) {
             boolean jeFallback = recenzenti.stream().anyMatch(recenzentiPrimarnoSamoPodpodrocje::contains)
                     || recenzenti.stream().anyMatch(recenzentiDodatnoSamoPodpodrocje::contains);
-            if (jeFallback) prijaveZFallbackom.add(prijavePodpodrocja.getFirst().getPrijavaId());
+            if (jeFallback) {
+                for (Prijava p : prijavePodpodrocja) {
+                    prijaveZFallbackom.add(p.getPrijavaId());
+                }
+                logger.info("Fallback za prijave: {} — fallback primarno={}, fallback dodatno={}",
+                        prijavePodpodrocja.stream().map(Prijava::getPrijavaId).collect(Collectors.toList()),
+                        recenzenti.stream().filter(recenzentiPrimarnoSamoPodpodrocje::contains).count(),
+                        recenzenti.stream().filter(recenzentiDodatnoSamoPodpodrocje::contains).count()
+                );
+            }
         } else {
             boolean jeFallback = recenzenti.stream().anyMatch(recenzentiPrimarnoSamoPodpodrocje::contains);
-            if (jeFallback) prijaveZFallbackom.add(prijavePodpodrocja.getFirst().getPrijavaId());
+            if (jeFallback) {
+                for (Prijava p : prijavePodpodrocja) {
+                    prijaveZFallbackom.add(p.getPrijavaId());
+                }
+                logger.info("Fallback za prijave: {} — fallback primarno={}",
+                        prijavePodpodrocja.stream().map(Prijava::getPrijavaId).collect(Collectors.toList()),
+                        recenzenti.stream().filter(recenzentiPrimarnoSamoPodpodrocje::contains).count()
+                );
+            }
         }
 
         return recenzenti;
