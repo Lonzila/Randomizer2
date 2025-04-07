@@ -9,6 +9,7 @@ import si.aris.randomizer2.model.*;
 import si.aris.randomizer2.repository.*;
 
 import java.io.IOException;
+import java.security.SecureRandom;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -49,6 +50,11 @@ public class DodeljevanjeService {
         // 1. Pridobimo vse prijave s statusom "BREZ RECENZENTA"
         List<Prijava> prijave = prijavaRepository.findByStatusPrijavIdIn(List.of(statusBrezRecenzenta.getId()));
         logger.info("Predizba prijave, ki so BREZ RECENZENTA: " + prijave.size());
+
+        List<Integer> dodatnePrijaveIds = predizborRepository.findPrijaveWithRejectedAndNotFullyAssigned();
+        List<Prijava> dodatnePrijave = prijavaRepository.findAllById(dodatnePrijaveIds);
+
+        prijave.addAll(dodatnePrijave);
 
         // 2. Sortiramo prijave po podpodročjih
         Map<String, List<Prijava>> prijavePoKombinacijah = new HashMap<>();
@@ -242,10 +248,19 @@ public class DodeljevanjeService {
             Set<Recenzent> primarniIzbrani = new HashSet<>();
             Set<Recenzent> dodatniIzbrani = new HashSet<>();
 
+            /*
             Collections.shuffle(recenzentiPrimarnoPolno);
             Collections.shuffle(recenzentiPrimarnoSamoPodpodrocje);
             Collections.shuffle(recenzentiDodatnoPolno);
             Collections.shuffle(recenzentiDodatnoSamoPodpodrocje);
+            */
+            Comparator<Recenzent> poPredizborIzkusnjah = Comparator.comparingInt(Recenzent::getPrijavePredizbor).reversed()
+                    .thenComparing(r -> new SecureRandom().nextInt());
+
+            recenzentiPrimarnoPolno.sort(poPredizborIzkusnjah);
+            recenzentiPrimarnoSamoPodpodrocje.sort(poPredizborIzkusnjah);
+            recenzentiDodatnoPolno.sort(poPredizborIzkusnjah);
+            recenzentiDodatnoSamoPodpodrocje.sort(poPredizborIzkusnjah);
 
             int manjkajociPrimarni = 2;
             primarniIzbrani.addAll(recenzentiPrimarnoPolno.subList(0, Math.min(2, recenzentiPrimarnoPolno.size())));
@@ -270,8 +285,14 @@ public class DodeljevanjeService {
         } else {
             Set<Recenzent> primarniIzbrani = new HashSet<>();
 
-            Collections.shuffle(recenzentiPrimarnoPolno);
-            Collections.shuffle(recenzentiPrimarnoSamoPodpodrocje);
+            //Collections.shuffle(recenzentiPrimarnoPolno);
+            //Collections.shuffle(recenzentiPrimarnoSamoPodpodrocje);
+
+            Comparator<Recenzent> poPredizborIzkusnjah = Comparator.comparingInt(Recenzent::getPrijavePredizbor).reversed()
+                    .thenComparing(r -> new SecureRandom().nextInt());
+
+            recenzentiPrimarnoPolno.sort(poPredizborIzkusnjah);
+            recenzentiPrimarnoSamoPodpodrocje.sort(poPredizborIzkusnjah);
 
             int manjkajoci = 5;
             primarniIzbrani.addAll(recenzentiPrimarnoPolno.subList(0, Math.min(5, recenzentiPrimarnoPolno.size())));
