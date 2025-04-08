@@ -9,6 +9,7 @@ import org.springframework.stereotype.Repository;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 @Repository
@@ -46,4 +47,7 @@ public interface RecenzentRepository extends JpaRepository<Recenzent, Integer> {
             "AND r.prostaMesta > 0")
     int countEligibleReviewers(@Param("podpodrocjeId") int podpodrocjeId,
                                @Param("ercId") int ercId);
+
+    Optional<Recenzent> findBySifra(int sifra);
+
 }

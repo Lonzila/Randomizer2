@@ -10,6 +10,7 @@ import org.springframework.stereotype.Repository;
 import si.aris.randomizer2.model.StatusPrijav;
 
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface PrijavaRepository extends JpaRepository<Prijava, Integer> {
@@ -23,6 +24,8 @@ public interface PrijavaRepository extends JpaRepository<Prijava, Integer> {
 
     // Ali, če želite še vedno delati z ID-ji, uporabite to:
     List<Prijava> findByStatusPrijavIdIn(List<Integer> statusPrijavIds);
+
+    Optional<Prijava> findByStevilkaPrijave(int stevilkaPrijave);
 
     @Modifying
     @Transactional
