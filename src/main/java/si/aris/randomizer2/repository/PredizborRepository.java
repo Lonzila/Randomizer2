@@ -5,6 +5,7 @@ import si.aris.randomizer2.model.Predizbor;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -19,4 +20,8 @@ public interface PredizborRepository extends JpaRepository<Predizbor, Integer> {
     List<Integer> findPrijaveWithRejectedAndNotFullyAssigned();
 
     Optional<Predizbor> findByPrijavaIdAndRecenzentId(int prijavaId, int recenzentId);
+
+    List<Predizbor> findByPrijavaId(int prijavaId);
+
+    List<Predizbor> findByPrijavaIdIn(List<Integer> prijavaIds);;
 }

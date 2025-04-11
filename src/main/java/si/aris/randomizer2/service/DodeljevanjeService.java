@@ -114,7 +114,7 @@ public class DodeljevanjeService {
         return excelExportService.exportPredizborToExcel(prijaveZFallbackom);
     }
 
-    private void dodeliRecenzenteZaSkupino(List<Prijava> prijaveSkupine) {
+    /*private void dodeliRecenzenteZaSkupino(List<Prijava> prijaveSkupine) {
         Map<Integer, Boolean> recenzentJePrimarni  = new HashMap<>();
         Set<Recenzent> recenzenti = pridobiPrimerneRecenzenteZaSkupino(prijaveSkupine, recenzentJePrimarni);
 
@@ -122,6 +122,72 @@ public class DodeljevanjeService {
             for (Recenzent recenzent : recenzenti) {
                 boolean jePrimarni = recenzentJePrimarni.getOrDefault(recenzent.getRecenzentId(), true); // fallback true
                 dodeliRecenzentaPrijavi(prijava, recenzent, jePrimarni);
+            }
+        }
+    }*/
+    private void dodeliRecenzenteZaSkupino(List<Prijava> prijaveSkupine) {
+        for (Prijava prijava : prijaveSkupine) {
+            List<Predizbor> obstojeciPredizbori = predizborRepository.findByPrijavaId(prijava.getPrijavaId());
+
+            // Ohrani aktivne recenzente
+            List<Predizbor> aktivni = obstojeciPredizbori.stream()
+                    .filter(p -> p.getStatus().equals("DODELJENA V OCENJEVANJE") || p.getStatus().equals("V OCENJEVANJU") || p.getStatus().equals("OPREDELJEN Z DA"))
+                    .toList();
+
+            // Zavrnitev
+            List<Predizbor> zavrnjeni = obstojeciPredizbori.stream()
+                    .filter(p -> p.getStatus().equals("OPREDELJEN Z NE"))
+                    .toList();
+
+            Map<Integer, Boolean> recenzentJePrimarni = new HashMap<>();
+            Set<Recenzent> noviRecenzenti = pridobiPrimerneRecenzenteZaSkupino(List.of(prijava), recenzentJePrimarni);
+
+            if (obstojeciPredizbori.isEmpty()) {
+                // Prva dodelitev
+                for (Recenzent recenzent : noviRecenzenti) {
+                    boolean jePrimarni = recenzentJePrimarni.getOrDefault(recenzent.getRecenzentId(), true);
+                    dodeliRecenzentaPrijavi(prijava, recenzent, jePrimarni);
+                }
+            } else {
+                // Zamenjaj samo zavrnjene
+
+                // 1. Shrani že dodeljene recenzente
+                List<Integer> zeDodeljeni = aktivni.stream()
+                        .map(Predizbor::getRecenzentId)
+                        .toList();
+
+                // 2. Razdeli zavrnjene na primarne in sekundarne
+                List<Predizbor> zavrnjeniPrimarni = zavrnjeni.stream()
+                        .filter(Predizbor::isPrimarni).toList();
+
+                List<Predizbor> zavrnjeniSekundarni = zavrnjeni.stream()
+                        .filter(p -> !p.isPrimarni()).toList();
+
+                List<Recenzent> kandidati = noviRecenzenti.stream()
+                        .filter(r -> !zeDodeljeni.contains(r.getRecenzentId()))
+                        .toList();
+
+                for (Predizbor zavrnjen : zavrnjeniPrimarni) {
+                    Optional<Recenzent> nadomestni = kandidati.stream()
+                            .filter(r -> recenzentJePrimarni.getOrDefault(r.getRecenzentId(), true)) // mora biti primarni
+                            .findFirst();
+
+                    nadomestni.ifPresent(rec -> {
+                        dodeliRecenzentaPrijavi(prijava, rec, true);
+                        kandidati.remove(rec);
+                    });
+                }
+
+                for (Predizbor zavrnjen : zavrnjeniSekundarni) {
+                    Optional<Recenzent> nadomestni = kandidati.stream()
+                            .filter(r -> !recenzentJePrimarni.getOrDefault(r.getRecenzentId(), true)) // mora biti sekundarni
+                            .findFirst();
+
+                    nadomestni.ifPresent(rec -> {
+                        dodeliRecenzentaPrijavi(prijava, rec, false);
+                        kandidati.remove(rec);
+                    });
+                }
             }
         }
     }
@@ -135,11 +201,18 @@ public class DodeljevanjeService {
         List<Integer> izloceniOsebni = izloceniOsebniRepository.findByPrijavaId(new ArrayList<>(prijaveIds))
                 .stream().map(IzloceniOsebni::getRecenzentId).collect(Collectors.toList());
 
+        // Pridobi recenzente, ki so že dodeljeni kateri koli izmed teh prijav
+        List<Predizbor> obstojeci = predizborRepository.findByPrijavaIdIn(new ArrayList<>(prijaveIds));
+        Set<Integer> zeDodeljeni = obstojeci.stream()
+                .map(Predizbor::getRecenzentId)
+                .collect(Collectors.toSet());
+
         return kandidati.stream()
                 .filter(r -> !izloceniCoi.contains(r.getRecenzentId()))
                 .filter(r -> !izloceniOsebni.contains(r.getRecenzentId()))
                 .filter(r -> !drzaveZaIzlocitev.contains(r.getDrzava()))
                 .filter(r -> r.getPrijavePredizbor() + prijaveIds.size() <= 10)
+                .filter(r -> !zeDodeljeni.contains(r.getRecenzentId()))  // ❗️izloči že dodeljene
                 .collect(Collectors.toSet());
     }
 
