@@ -327,8 +327,13 @@ public class DodeljevanjeService {
             Collections.shuffle(recenzentiDodatnoPolno);
             Collections.shuffle(recenzentiDodatnoSamoPodpodrocje);
             */
-            Comparator<Recenzent> poPredizborIzkusnjah = Comparator.comparingInt(Recenzent::getPrijavePredizbor).reversed()
-                    .thenComparing(r -> new SecureRandom().nextInt());
+            SecureRandom secureRandom = new SecureRandom();
+            Map<Integer, Integer> nakljucneVrednosti = new HashMap<>();
+            vsiRecenzenti.forEach(r -> nakljucneVrednosti.put(r.getRecenzentId(), secureRandom.nextInt()));
+
+            Comparator<Recenzent> poPredizborIzkusnjah = Comparator
+                    .comparingInt(Recenzent::getPrijavePredizbor).reversed()
+                    .thenComparing(r -> nakljucneVrednosti.getOrDefault(r.getRecenzentId(), 0));
 
             recenzentiPrimarnoPolno.sort(poPredizborIzkusnjah);
             recenzentiPrimarnoSamoPodpodrocje.sort(poPredizborIzkusnjah);
@@ -361,8 +366,23 @@ public class DodeljevanjeService {
             //Collections.shuffle(recenzentiPrimarnoPolno);
             //Collections.shuffle(recenzentiPrimarnoSamoPodpodrocje);
 
-            Comparator<Recenzent> poPredizborIzkusnjah = Comparator.comparingInt(Recenzent::getPrijavePredizbor).reversed()
+            /*Comparator<Recenzent> poPredizborIzkusnjah = Comparator.comparingInt(Recenzent::getPrijavePredizbor).reversed()
                     .thenComparing(r -> new SecureRandom().nextInt());
+
+            recenzentiPrimarnoPolno.sort(poPredizborIzkusnjah);
+            recenzentiPrimarnoSamoPodpodrocje.sort(poPredizborIzkusnjah);*/
+
+            // Ustvari mapo z naključnimi vrednostmi za vsak recenzenta (SecureRandom za boljšo razpršenost)
+            SecureRandom secureRandom = new SecureRandom();
+            Map<Integer, Integer> nakljucneVrednosti = new HashMap<>();
+            vsiRecenzenti.forEach(r -> nakljucneVrednosti.put(r.getRecenzentId(), secureRandom.nextInt()));
+
+
+
+            Comparator<Recenzent> poPredizborIzkusnjah = Comparator
+                    .comparingInt(Recenzent::getPrijavePredizbor).reversed()
+                    .thenComparing(r -> nakljucneVrednosti.getOrDefault(r.getRecenzentId(), 0));
+
 
             recenzentiPrimarnoPolno.sort(poPredizborIzkusnjah);
             recenzentiPrimarnoSamoPodpodrocje.sort(poPredizborIzkusnjah);
