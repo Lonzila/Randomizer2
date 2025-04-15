@@ -117,6 +117,13 @@ public class ExcelExportService {
         Row headerRow = sheet.createRow(0);
         headerRow.createCell(0).setCellValue("Številka prijave");
         headerRow.createCell(1).setCellValue("Šifra recenzenta");
+        headerRow.createCell(2).setCellValue("Ime in priimek");
+        headerRow.createCell(3).setCellValue("Ime");
+        headerRow.createCell(4).setCellValue("Priimek");
+        headerRow.createCell(5).setCellValue("Podpodročje");
+        headerRow.createCell(6).setCellValue("ERC");
+        headerRow.createCell(7).setCellValue("Dodatno podpodročje");
+        headerRow.createCell(8).setCellValue("Dodatno ERC");
 
         int rowNum = 1;
         for (Predizbor predizbor : predizborList) {
@@ -131,6 +138,13 @@ public class ExcelExportService {
             Row row = sheet.createRow(rowNum++);
             row.createCell(0).setCellValue(prijava.getStevilkaPrijave());
             row.createCell(1).setCellValue(recenzent.getSifra());
+            row.createCell(2).setCellValue(recenzent.getIme() + " " + recenzent.getPriimek());
+            row.createCell(3).setCellValue(recenzent.getIme());
+            row.createCell(4).setCellValue(recenzent.getPriimek());
+            row.createCell(5).setCellValue(prijava.getPodpodrocje() != null ? prijava.getPodpodrocje().getKoda() : "");
+            row.createCell(6).setCellValue(prijava.getErcPodrocje() != null ? prijava.getErcPodrocje().getKoda() : "");
+            row.createCell(7).setCellValue(prijava.getDodatnoPodpodrocje() != null ? prijava.getDodatnoPodpodrocje().getKoda() : "");
+            row.createCell(8).setCellValue(prijava.getDodatnoErcPodrocje() != null ? prijava.getDodatnoErcPodrocje().getKoda() : "");
         }
 
         try (FileOutputStream fileOut = new FileOutputStream("predizbor_pravilnost.xlsx")) {
