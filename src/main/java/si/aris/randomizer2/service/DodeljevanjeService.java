@@ -263,6 +263,7 @@ public class DodeljevanjeService {
         List<Recenzent> recenzentiDodatnoPolno = new ArrayList<>();
         List<Recenzent> recenzentiDodatnoSamoPodpodrocje = new ArrayList<>();
 
+        boolean interdisc = prijavePodpodrocja.getFirst().isInterdisc();
 
         for (Recenzent r : vsiRecenzentiList) {
             boolean primarnoMatchP = r.getRecenzentiPodrocja().stream().anyMatch(rp -> rp.getPodpodrocjeId() == primarnoPodpodrocje.getPodpodrocjeId());
@@ -271,11 +272,14 @@ public class DodeljevanjeService {
             boolean dodatnoMatchP = dodatnoPodpodrocje != null && r.getRecenzentiPodrocja().stream().anyMatch(rp -> rp.getPodpodrocjeId() == dodatnoPodpodrocje.getPodpodrocjeId());
             boolean dodatnoMatchE = dodatnoErcPodrocje != null && r.getRecenzentiErc().stream().anyMatch(re -> re.getErcPodrocjeId() == dodatnoErcPodrocje.getErcId());
 
-            if (primarnoMatchP && primarnoMatchE) recenzentiPrimarnoPolno.add(r);
+            boolean izlocenNaPrimarnem = interdisc && !Boolean.TRUE.equals(r.getPorocevalec()) && primarnoMatchP && primarnoMatchE;
 
+            //if (primarnoMatchP && primarnoMatchE) recenzentiPrimarnoPolno.add(r);
+            if (!izlocenNaPrimarnem && primarnoMatchP && primarnoMatchE) {
+                recenzentiPrimarnoPolno.add(r);
+            }
             if (dodatnoMatchP && dodatnoMatchE) recenzentiDodatnoPolno.add(r);
         }
-        boolean interdisc = prijavePodpodrocja.getFirst().isInterdisc();
 
         if (vsiRecenzentiList.size() < 5) {
             logger.warn("Premalo recenzentov! Najdenih: {} za kombinacijo Podpodrocje={}, ERC={}.",

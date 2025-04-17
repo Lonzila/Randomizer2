@@ -7,6 +7,7 @@ import si.aris.randomizer2.model.*;
 import si.aris.randomizer2.repository.PredizborRepository;
 import si.aris.randomizer2.repository.PrijavaRepository;
 import si.aris.randomizer2.repository.RecenzentRepository;
+import si.aris.randomizer2.repository.StatusPrijavRepository;
 
 import java.io.InputStreamReader;
 import java.util.*;
@@ -18,11 +19,13 @@ public class PregledOpredelitevService {
     private final PrijavaRepository prijavaRepository;
     private final RecenzentRepository recenzentRepository;
     private final PredizborRepository predizborRepository;
+    private final StatusPrijavRepository statusPrijavRepository;
 
-    public PregledOpredelitevService(PrijavaRepository prijavaRepository, RecenzentRepository recenzentRepository, PredizborRepository predizborRepository) {
+    public PregledOpredelitevService(PrijavaRepository prijavaRepository, RecenzentRepository recenzentRepository, PredizborRepository predizborRepository, StatusPrijavRepository statusPrijavRepository) {
         this.prijavaRepository = prijavaRepository;
         this.recenzentRepository = recenzentRepository;
         this.predizborRepository = predizborRepository;
+        this.statusPrijavRepository = statusPrijavRepository;
     }
 
     public Map<Set<Integer>, List<Integer>> izracunajNajboljPogostePare(Resource excelResource) throws Exception {
@@ -78,9 +81,9 @@ public class PregledOpredelitevService {
                     Optional<Recenzent> rOpt = recenzentRepository.findById(rec.recenzentId);
                     if (rOpt.isEmpty()) continue;
                     Recenzent r = rOpt.get();
-                    Boolean primarno = dolociPrimarnost(prijava, r);
-                    if (primarno != null) {
-                        rec.primarno = primarno;
+                    Optional<Predizbor> predOpt = predizborRepository.findByPrijavaIdAndRecenzentId(prijavaId, r.getRecenzentId());
+                    if (predOpt.isPresent()) {
+                        rec.primarno = predOpt.get().isPrimarni();
                         opredeljeni.add(rec);
                     }
                 }
@@ -119,6 +122,9 @@ public class PregledOpredelitevService {
                 recenzentRepository.save(r);
             }));
 
+            StatusPrijav statusVOcenjevanju = statusPrijavRepository.findById(3)
+                    .orElseThrow(() -> new RuntimeException("Status V OCENJEVANJU ni bil najden"));
+
             prijaveZaPar.forEach(prijavaId -> {
                 prijavaToRecenzenti.get(prijavaId).forEach(entry -> {
                     if (najpogostejsiPar.contains(entry.recenzentId)) {
@@ -127,6 +133,11 @@ public class PregledOpredelitevService {
                             pred.setStatus("V OCENJEVANJU");
                             predizborRepository.save(pred);
                             zeDodeljeniPari.add(prijavaId + ":" + entry.recenzentId);
+
+                            prijavaRepository.findById(prijavaId).ifPresent(pr -> {
+                                pr.setStatusPrijav(statusVOcenjevanju);
+                                prijavaRepository.save(pr);
+                            });
                         });
                     }
                 });
