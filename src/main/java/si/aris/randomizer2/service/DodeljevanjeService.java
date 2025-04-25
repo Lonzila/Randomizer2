@@ -70,12 +70,15 @@ public class DodeljevanjeService {
                     .computeIfAbsent(key, k -> new ArrayList<>())
                     .add(prijava);
 
-            int steviloPrimarnihRecenzentov = recenzentRepository.countEligibleReviewers(
-                    prijava.getPodpodrocje().getPodpodrocjeId(), prijava.getErcPodrocje().getErcId());
+            int steviloPrimarnihRecenzentov = recenzentRepository.countEligibleByPodpodrocjeOnly(
+                    prijava.getPodpodrocje().getPodpodrocjeId());
             int steviloDodatnihRecenzentov = (prijava.getDodatnoPodpodrocje() != null && prijava.getDodatnoErcPodrocje() != null) ?
-                    recenzentRepository.countEligibleReviewers(prijava.getDodatnoPodpodrocje().getPodpodrocjeId(), prijava.getDodatnoErcPodrocje().getErcId()) : 0;
+                    recenzentRepository.countEligibleByPodpodrocjeOnly(prijava.getDodatnoPodpodrocje().getPodpodrocjeId()) : Integer.MAX_VALUE; // Če ni dodatnega, naj ne vpliva na min()
 
-            recenzentiNaSkupino.put(key, steviloPrimarnihRecenzentov + steviloDodatnihRecenzentov);
+            int najmanjsaMoznost = Math.min(steviloPrimarnihRecenzentov, steviloDodatnihRecenzentov);
+            recenzentiNaSkupino.put(key, najmanjsaMoznost);
+
+            //recenzentiNaSkupino.put(key, steviloPrimarnihRecenzentov + steviloDodatnihRecenzentov);
         }
         //logger.info("Število unikatnih skupin prijav: {}", prijavePoKombinacijah.size());
         List<Map.Entry<String, List<Prijava>>> sortiraneSkupine = new ArrayList<>(prijavePoKombinacijah.entrySet());
@@ -141,6 +144,10 @@ public class DodeljevanjeService {
 
             Map<Integer, Boolean> recenzentJePrimarni = new HashMap<>();
             Set<Recenzent> noviRecenzenti = pridobiPrimerneRecenzenteZaSkupino(List.of(prijava), recenzentJePrimarni);
+            //System.out.println("Število recenzenotv, ki pride na koncu ven: " + noviRecenzenti.size());
+            if(noviRecenzenti.size() < 5){
+                noviRecenzenti.forEach(r -> System.out.println("✅ Novi Recenzent " + r.getRecenzentId() + " (" + r.getIme() + " " + r.getPriimek() + ") JE USTREZEN"));
+            }
 
             if (obstojeciPredizbori.isEmpty()) {
                 // Prva dodelitev
@@ -207,6 +214,39 @@ public class DodeljevanjeService {
                 .map(Predizbor::getRecenzentId)
                 .collect(Collectors.toSet());
 
+        /*for (Recenzent r : kandidati) {
+            boolean izlocen = false;
+            int id = r.getRecenzentId();
+
+            if (izloceniCoi.contains(id)) {
+                System.out.println("Recenzent " + id + " izločen zaradi COI.");
+                izlocen = true;
+            }
+
+            if (izloceniOsebni.contains(id)) {
+                System.out.println("Recenzent " + id + " izločen zaradi osebnih razlogov.");
+                izlocen = true;
+            }
+
+            if (drzaveZaIzlocitev.contains(r.getDrzava())) {
+                System.out.println("Recenzent " + id + " izločen zaradi države: " + r.getDrzava());
+                izlocen = true;
+            }
+
+            if (r.getPrijavePredizbor() + prijaveIds.size() > 10) {
+                System.out.println("Recenzent " + id + " presega dovoljeno število prijav.");
+                izlocen = true;
+            }
+
+            if (zeDodeljeni.contains(id)) {
+                System.out.println("Recenzent " + id + " že dodeljen tej prijavi.");
+                izlocen = true;
+            }
+
+            if (!izlocen) {
+                System.out.println("Recenzent " + id + " je USTREZEN.");
+            }
+        } */
         return kandidati.stream()
                 .filter(r -> !izloceniCoi.contains(r.getRecenzentId()))
                 .filter(r -> !izloceniOsebni.contains(r.getRecenzentId()))
@@ -274,6 +314,10 @@ public class DodeljevanjeService {
 
             boolean izlocenNaPrimarnem = interdisc && !Boolean.TRUE.equals(r.getPorocevalec()) && primarnoMatchP && primarnoMatchE;
 
+            if (izlocenNaPrimarnem) {
+                System.out.println("Recenzent " + r.getRecenzentId() + " izločen iz primarnega podpodročja, ker ni poročevalec.");
+            }
+
             //if (primarnoMatchP && primarnoMatchE) recenzentiPrimarnoPolno.add(r);
             if (!izlocenNaPrimarnem && primarnoMatchP && primarnoMatchE) {
                 recenzentiPrimarnoPolno.add(r);
@@ -291,24 +335,36 @@ public class DodeljevanjeService {
         //ce je interdisciplinarna prijava
         if (interdisc) {
             if (recenzentiPrimarnoPolno.size() < 2) {
+                System.out.println("⚠️ Premalo recenzentov za PRIMARNO (najdenih: " + recenzentiPrimarnoPolno.size() + "), sprožam fallback.");
+
                 Set<Recenzent> fallbackPrimarno = new HashSet<>(recenzentRepository.findEligibleByPodpodrocjeOnly(primarnoPodpodrocje.getPodpodrocjeId()));
                 fallbackPrimarno.removeIf(r -> zeUporabljeni.contains(r.getRecenzentId()));
                 fallbackPrimarno = filtrirajRecenzente(fallbackPrimarno, vsePrijaveIds, vseDrzave);
+
                 for (Recenzent r : fallbackPrimarno) {
                     if (!recenzentiPrimarnoPolno.contains(r)) {
                         recenzentiPrimarnoSamoPodpodrocje.add(r);
+                        System.out.println("✅ Dodan PRIMARNI fallback recenzent: " + r.getRecenzentId() + " - " + r.getIme() + " " + r.getPriimek());
                     }
                 }
+
+                System.out.println("🔎 Skupno PRIMARNIH fallback recenzentov: " + recenzentiPrimarnoSamoPodpodrocje.size());
             }
             if (recenzentiDodatnoPolno.size() < 3) {
+                System.out.println("⚠️ Premalo recenzentov za DODATNO (najdenih: " + recenzentiDodatnoPolno.size() + "), sprožam fallback.");
+                System.out.println("➡️ Prijava ID " + prijavePodpodrocja.getFirst().getPrijavaId() + " sproža fallback.");
                 Set<Recenzent> fallbackDodatno = new HashSet<>(recenzentRepository.findEligibleByPodpodrocjeOnly(dodatnoPodpodrocje.getPodpodrocjeId()));
                 fallbackDodatno.removeIf(r -> zeUporabljeni.contains(r.getRecenzentId()));
                 fallbackDodatno = filtrirajRecenzente(fallbackDodatno, vsePrijaveIds, vseDrzave);
+
                 for (Recenzent r : fallbackDodatno) {
                     if (!recenzentiDodatnoPolno.contains(r)) {
                         recenzentiDodatnoSamoPodpodrocje.add(r);
+                        System.out.println("✅ Dodan DODATNI fallback recenzent: " + r.getRecenzentId() + " - " + r.getIme() + " " + r.getPriimek());
                     }
                 }
+
+                System.out.println("🔎 Skupno DODATNIH fallback recenzentov: " + recenzentiDodatnoSamoPodpodrocje.size());
             }
         } else if (recenzentiPrimarnoPolno.size() < 5) {
             Set<Recenzent> fallback = new HashSet<>(recenzentRepository.findEligibleByPodpodrocjeOnly(primarnoPodpodrocje.getPodpodrocjeId()));
@@ -325,45 +381,66 @@ public class DodeljevanjeService {
             Set<Recenzent> primarniIzbrani = new HashSet<>();
             Set<Recenzent> dodatniIzbrani = new HashSet<>();
 
+            SecureRandom secureRandom = new SecureRandom();
+            Map<Integer, Integer> nakljucneVrednosti = new HashMap<>();
+            vsiRecenzenti.forEach(r -> nakljucneVrednosti.put(r.getRecenzentId(), secureRandom.nextInt()));
+
+            Comparator<Recenzent> comparator = Comparator
+                    .comparingInt(Recenzent::getPrijavePredizbor).reversed()
+                    .thenComparing(r -> nakljucneVrednosti.getOrDefault(r.getRecenzentId(), 0));
+
+            recenzentiPrimarnoPolno.sort(comparator);
+            recenzentiPrimarnoSamoPodpodrocje.sort(comparator);
+            recenzentiDodatnoPolno.sort(comparator);
+            recenzentiDodatnoSamoPodpodrocje.sort(comparator);
             /*
             Collections.shuffle(recenzentiPrimarnoPolno);
             Collections.shuffle(recenzentiPrimarnoSamoPodpodrocje);
             Collections.shuffle(recenzentiDodatnoPolno);
             Collections.shuffle(recenzentiDodatnoSamoPodpodrocje);
             */
-            SecureRandom secureRandom = new SecureRandom();
-            Map<Integer, Integer> nakljucneVrednosti = new HashMap<>();
-            vsiRecenzenti.forEach(r -> nakljucneVrednosti.put(r.getRecenzentId(), secureRandom.nextInt()));
-
-            Comparator<Recenzent> poPredizborIzkusnjah = Comparator
-                    .comparingInt(Recenzent::getPrijavePredizbor).reversed()
-                    .thenComparing(r -> nakljucneVrednosti.getOrDefault(r.getRecenzentId(), 0));
-
-            recenzentiPrimarnoPolno.sort(poPredizborIzkusnjah);
-            recenzentiPrimarnoSamoPodpodrocje.sort(poPredizborIzkusnjah);
-            recenzentiDodatnoPolno.sort(poPredizborIzkusnjah);
-            recenzentiDodatnoSamoPodpodrocje.sort(poPredizborIzkusnjah);
-
             int manjkajociPrimarni = 2;
-            primarniIzbrani.addAll(recenzentiPrimarnoPolno.subList(0, Math.min(2, recenzentiPrimarnoPolno.size())));
-            manjkajociPrimarni -= primarniIzbrani.size();
-
-            if (manjkajociPrimarni > 0) {
-                primarniIzbrani.addAll(recenzentiPrimarnoSamoPodpodrocje.subList(0, Math.min(manjkajociPrimarni, recenzentiPrimarnoSamoPodpodrocje.size())));
+            for (Recenzent r : recenzentiPrimarnoPolno) {
+                if (manjkajociPrimarni == 0) break;
+                primarniIzbrani.add(r);
+                recenzentJePrimarni.put(r.getRecenzentId(), true);
+                manjkajociPrimarni--;
+            }
+            for (Recenzent r : recenzentiPrimarnoSamoPodpodrocje) {
+                if (manjkajociPrimarni == 0) break;
+                if (!primarniIzbrani.contains(r)) {
+                    primarniIzbrani.add(r);
+                    recenzentJePrimarni.put(r.getRecenzentId(), true);
+                    manjkajociPrimarni--;
+                }
             }
 
             int manjkajociSekundarni = 3;
-            dodatniIzbrani.addAll(recenzentiDodatnoPolno.subList(0, Math.min(3, recenzentiDodatnoPolno.size())));
-            manjkajociSekundarni -= dodatniIzbrani.size();
-
-            if (manjkajociSekundarni > 0) {
-                dodatniIzbrani.addAll(recenzentiDodatnoSamoPodpodrocje.subList(0, Math.min(manjkajociSekundarni, recenzentiDodatnoSamoPodpodrocje.size())));
+            for (Recenzent r : recenzentiDodatnoPolno) {
+                if (manjkajociSekundarni == 0 || primarniIzbrani.contains(r)) continue;
+                dodatniIzbrani.add(r);
+                recenzentJePrimarni.put(r.getRecenzentId(), false);
+                manjkajociSekundarni--;
+            }
+            for (Recenzent r : recenzentiDodatnoSamoPodpodrocje) {
+                if (manjkajociSekundarni == 0 || primarniIzbrani.contains(r) || dodatniIzbrani.contains(r)) continue;
+                dodatniIzbrani.add(r);
+                recenzentJePrimarni.put(r.getRecenzentId(), false);
+                manjkajociSekundarni--;
             }
 
             recenzenti.addAll(primarniIzbrani);
             recenzenti.addAll(dodatniIzbrani);
-            for (Recenzent r : primarniIzbrani) recenzentJePrimarni.put(r.getRecenzentId(), true);
-            for (Recenzent r : dodatniIzbrani) recenzentJePrimarni.put(r.getRecenzentId(), false);
+
+            // Debug, če je manj kot 5
+            if (recenzenti.size() < 5) {
+                System.out.println("=== IZBRANI PRIMARNI ===");
+                primarniIzbrani.forEach(r ->
+                        System.out.println("✅ Primarni: " + r.getRecenzentId() + " - " + r.getIme() + " " + r.getPriimek()));
+                System.out.println("=== IZBRANI SEKUNDARNI ===");
+                dodatniIzbrani.forEach(r ->
+                        System.out.println("✅ Sekundarni: " + r.getRecenzentId() + " - " + r.getIme() + " " + r.getPriimek()));
+            }
         } else {
             Set<Recenzent> primarniIzbrani = new HashSet<>();
 
