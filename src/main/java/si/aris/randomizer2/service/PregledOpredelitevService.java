@@ -106,8 +106,31 @@ public class PregledOpredelitevService {
 
             Optional<Map.Entry<Set<Integer>, List<Integer>>> izbran = kandidatniPari.entrySet().stream()
                     .sorted((e1, e2) -> Integer.compare(e2.getValue().size(), e1.getValue().size()))
-                    .filter(e -> imaProstaMesta(e.getKey(), e.getValue().size()))
+                    //.filter(e -> imaProstaMesta(e.getKey(), e.getValue().size()))
+                    .map(e -> {
+                        int maxDodeljenih = e.getValue().size();
+                        for (Integer recId : e.getKey()) {
+                            Optional<Recenzent> recOpt = recenzentRepository.findById(recId);
+                            int prosta = recOpt.map(Recenzent::getProstaMesta).orElse(0);
+                            maxDodeljenih = Math.min(maxDodeljenih, prosta);
+                        }
+                        return Map.entry(e.getKey(), e.getValue().subList(0, maxDodeljenih));
+                    })
+                    .filter(e -> !e.getValue().isEmpty())
                     .findFirst();
+
+            // kaj če da en recenzent 10 krat da, potem ne bo imel prostora, in jih bo napačno sfiltriralo
+            // probal rešit ta prebolem s tem:
+            /* .map(e -> {
+                        int maxDodeljenih = e.getValue().size();
+                        for (Integer recId : e.getKey()) {
+                            Optional<Recenzent> recOpt = recenzentRepository.findById(recId);
+                            int prosta = recOpt.map(Recenzent::getProstaMesta).orElse(0);
+                            maxDodeljenih = Math.min(maxDodeljenih, prosta);
+                        }
+                        return Map.entry(e.getKey(), e.getValue().subList(0, maxDodeljenih));
+                    })
+                    .filter(e -> !e.getValue().isEmpty())*/
 
             if (izbran.isEmpty()) break;
 
@@ -122,7 +145,7 @@ public class PregledOpredelitevService {
                 recenzentRepository.save(r);
             }));
 
-            StatusPrijav statusVOcenjevanju = statusPrijavRepository.findById(3)
+            StatusPrijav statusVOcenjevanju = statusPrijavRepository.findById(3) // tu ponastavi na V OCENJEVANJU
                     .orElseThrow(() -> new RuntimeException("Status V OCENJEVANJU ni bil najden"));
 
             prijaveZaPar.forEach(prijavaId -> {
@@ -179,24 +202,6 @@ public class PregledOpredelitevService {
         }
         return true;
     }
-    private Boolean dolociPrimarnost(Prijava prijava, Recenzent recenzent) {
-        boolean imaPrimarno = recenzent.getRecenzentiPodrocja().stream()
-                .anyMatch(rp -> rp.getPodpodrocjeId() == prijava.getPodpodrocje().getPodpodrocjeId())
-                && recenzent.getRecenzentiErc().stream()
-                .anyMatch(re -> re.getErcPodrocjeId() == prijava.getErcPodrocje().getErcId());
-
-        if (imaPrimarno) return true;
-
-        if (prijava.getDodatnoPodpodrocje() != null && prijava.getDodatnoErcPodrocje() != null) {
-            boolean imaDodatno = recenzent.getRecenzentiPodrocja().stream()
-                    .anyMatch(rp -> rp.getPodpodrocjeId() == prijava.getDodatnoPodpodrocje().getPodpodrocjeId())
-                    && recenzent.getRecenzentiErc().stream()
-                    .anyMatch(re -> re.getErcPodrocjeId() == prijava.getDodatnoErcPodrocje().getErcId());
-
-            if (imaDodatno) return false;
-        }
-        return null;
-    }
 
     private Set<Set<Integer>> generirajPare(boolean interdisc, List<RecenzentEntry> recenzenti) {
         Set<Set<Integer>> pari = new HashSet<>();
@@ -230,4 +235,24 @@ public class PregledOpredelitevService {
             this.status = status;
         }
     }
+
+    /*
+    private Boolean dolociPrimarnost(Prijava prijava, Recenzent recenzent) {
+        boolean imaPrimarno = recenzent.getRecenzentiPodrocja().stream()
+                .anyMatch(rp -> rp.getPodpodrocjeId() == prijava.getPodpodrocje().getPodpodrocjeId())
+                && recenzent.getRecenzentiErc().stream()
+                .anyMatch(re -> re.getErcPodrocjeId() == prijava.getErcPodrocje().getErcId());
+
+        if (imaPrimarno) return true;
+
+        if (prijava.getDodatnoPodpodrocje() != null && prijava.getDodatnoErcPodrocje() != null) {
+            boolean imaDodatno = recenzent.getRecenzentiPodrocja().stream()
+                    .anyMatch(rp -> rp.getPodpodrocjeId() == prijava.getDodatnoPodpodrocje().getPodpodrocjeId())
+                    && recenzent.getRecenzentiErc().stream()
+                    .anyMatch(re -> re.getErcPodrocjeId() == prijava.getDodatnoErcPodrocje().getErcId());
+
+            if (imaDodatno) return false;
+        }
+        return null;
+    }*/
 }

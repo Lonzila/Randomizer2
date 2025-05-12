@@ -47,7 +47,7 @@ public class DodeljevanjeService {
         StatusPrijav statusBrezRecenzenta = statusPrijavRepository.findByNaziv("BREZ RECENZENTA")
                 .orElseThrow(() -> new RuntimeException("Status 'BREZ RECENZENTA' ni bil najden."));
 
-        // 1. Pridobimo vse prijave s statusom "BREZ RECENZENTA"
+        // 1. Pridobim vse prijave s statusom "BREZ RECENZENTA"
         List<Prijava> prijave = prijavaRepository.findByStatusPrijavIdIn(List.of(statusBrezRecenzenta.getId()));
         logger.info("Predizba prijave, ki so BREZ RECENZENTA: " + prijave.size());
 
@@ -56,11 +56,11 @@ public class DodeljevanjeService {
 
         prijave.addAll(dodatnePrijave);
 
-        // 2. Sortiramo prijave po podpodročjih
+        // 2. Sortiram prijave po podpodročjih
         Map<String, List<Prijava>> prijavePoKombinacijah = new HashMap<>();
         Map<String, Integer> recenzentiNaSkupino = new HashMap<>();
         for (Prijava prijava : prijave) {
-            // Sestavimo unikatni ključ za grupiranje prijav
+            // Sestavim unikatni ključ za grupiranje prijav
             String key = prijava.getPodpodrocje().getNaziv() + "-" +
                     prijava.getErcPodrocje().getKoda() + "-" +
                     (prijava.getDodatnoPodpodrocje() != null ? prijava.getDodatnoPodpodrocje().getNaziv() : "none") + "-" +
@@ -89,13 +89,13 @@ public class DodeljevanjeService {
             int steviloPrijav = prijavePodpodrocja.size();
 
 
-            // Izpisujemo informacije o podpodročju in številu prijav (skupina)
+            // Izpisujem informacije o podpodročju in številu prijav (skupina)
             //logger.info("Skupina (Podpodročje in Dodatno Podpodročje): {} ima {} prijav.", key, steviloPrijav);
 
-            // Razdelimo skupine, če ima skupina več kot 10 prijav
+            // Razdelim skupine, če ima skupina več kot 10 prijav
             List<List<Prijava>> razdeljeneSkupine = new ArrayList<>();
             for (int i = 0; i < steviloPrijav; i += 10) {
-                // Za vsako skupino, ki je večja od 10, ustvarimo novo skupino z največ 10 prijavami
+                // Za vsako skupino, ki je večja od 10, ustvarim novo skupino z največ 10 prijavami
                 List<Prijava> skupina = prijavePodpodrocja.subList(i, Math.min(i + 10, steviloPrijav));
                 razdeljeneSkupine.add(skupina);
             }
@@ -261,7 +261,7 @@ public class DodeljevanjeService {
         // Seznam recenzentov, ki ustrezajo za vse prijave v skupini
         Set<Recenzent> recenzenti = new HashSet<>();
 
-        // Prvo pridobimo vse države, COI in osebne razloge, ki se pojavljajo v tej skupini prijav
+        // Prvo pridobim vse države, COI in osebne razloge, ki se pojavljajo v tej skupini prijav
         Set<String> vseDrzave = new HashSet<>();
         Set<Integer> vsePrijaveIds = new HashSet<>();
 
@@ -283,7 +283,7 @@ public class DodeljevanjeService {
 
         }
 
-        // Poiščemo vse recenzente, ki so povezani s podpodročji teh prijav
+        // Poiščem vse recenzente, ki so povezani s podpodročji teh prijav
         Set<Recenzent> vsiRecenzenti = new HashSet<>();
 
         vsiRecenzenti.addAll(recenzentRepository.findEligibleReviewers(primarnoPodpodrocje.getPodpodrocjeId(), primarnoErcPodrocje.getErcId()));
