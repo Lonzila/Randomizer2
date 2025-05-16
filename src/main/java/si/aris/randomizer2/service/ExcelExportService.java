@@ -242,7 +242,7 @@ public class ExcelExportService {
 
     public void izvoziNovoDodeljeneVeljavne() throws IOException {
         Workbook workbook = new XSSFWorkbook();
-        Sheet sheet = workbook.createSheet("Veljavni predizbori - novo stanje");
+        Sheet sheet = workbook.createSheet("Veljavni predizbori novo stanje");
 
         Row headerRow = sheet.createRow(0);
         List<String> columns = new ArrayList<>(List.of(
@@ -303,7 +303,7 @@ public class ExcelExportService {
         }
 
         String timestamp = java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
-        try (FileOutputStream fileOut = new FileOutputStream("exports/export_predizbor_novo_stanje_" + timestamp + ".xlsx")) {
+        try (FileOutputStream fileOut = new FileOutputStream("export_predizbor_novo_stanje_" + timestamp + ".xlsx")) {
             workbook.write(fileOut);
         }
     }
