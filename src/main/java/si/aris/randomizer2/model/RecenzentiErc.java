@@ -17,12 +17,8 @@ public class RecenzentiErc {
 
     @ManyToOne
     @JoinColumn(name = "recenzent_id", nullable = false)
-    private Recenzent recenzentId;
+    private Recenzent recenzent; // Samo objekt, brez dodatnega int ID
 
     @Column(name = "erc_id", nullable = false)
     private int ercPodrocjeId;
-
-    @ManyToOne
-    @JoinColumn(name = "recenzent_id", referencedColumnName = "recenzent_id", insertable = false, updatable = false)
-    private Recenzent recenzent; // Dodajte povezavo do Recenzent entitete
 }

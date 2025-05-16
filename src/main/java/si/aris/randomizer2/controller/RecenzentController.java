@@ -1,10 +1,9 @@
 package si.aris.randomizer2.controller;
 
 import si.aris.randomizer2.model.Recenzent;
-import si.aris.randomizer2.repository.RecenzentRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
-import si.aris.randomizer2.service.RecenzentService;
+import si.aris.randomizer2.service.RecenzentImportService;
 
 import java.util.List;
 
@@ -13,7 +12,7 @@ import java.util.List;
 public class RecenzentController {
 
     @Autowired
-    private RecenzentService service;
+    private RecenzentImportService service;
 
     @GetMapping
     public List<Recenzent> getAll() {

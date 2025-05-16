@@ -36,11 +36,12 @@ public class DodeljevanjeService {
     @Autowired
     private StatusPrijavRepository statusPrijavRepository;
 
+    @Autowired
+    private ExcelExportService excelExportService;
+
     private final Set<Integer> prijaveZFallbackom = new HashSet<>();
 
     private static final Logger logger = LoggerFactory.getLogger(DodeljevanjeService.class);
-    @Autowired
-    private ExcelExportService excelExportService;
 
     public ByteArrayResource predizbor() throws IOException{
 
@@ -256,8 +257,8 @@ public class DodeljevanjeService {
                 .collect(Collectors.toSet());
     }
 
-    private Set<Recenzent> pridobiPrimerneRecenzenteZaSkupino(List<Prijava> prijavePodpodrocja,
-                                                               Map<Integer, Boolean> recenzentJePrimarni) {
+    Set<Recenzent> pridobiPrimerneRecenzenteZaSkupino(List<Prijava> prijavePodpodrocja,
+                                                      Map<Integer, Boolean> recenzentJePrimarni) {
         // Seznam recenzentov, ki ustrezajo za vse prijave v skupini
         Set<Recenzent> recenzenti = new HashSet<>();
 
@@ -525,7 +526,7 @@ public class DodeljevanjeService {
         return recenzenti.subList(0, stevilo);
     }*/
 
-    private void dodeliRecenzentaPrijavi(Prijava prijava, Recenzent recenzent, boolean primarni) {
+    public Predizbor dodeliRecenzentaPrijavi(Prijava prijava, Recenzent recenzent, boolean primarni) {
         // Preverimo, ali recenzent še lahko sprejme novo prijavo v predizbor
         if (recenzent.getPrijavePredizbor() < 10) {
             Predizbor predizbor = new Predizbor();
@@ -544,6 +545,7 @@ public class DodeljevanjeService {
             prijava.setStatusPrijav(status);
             prijavaRepository.save(prijava);
             //prijavaRepository.flush();
+            return predizborRepository.save(predizbor);
         } else {
             System.out.println("Število ki jih ima v predizboru + 1:" + recenzent.getPrijavePredizbor() + " 1");
             throw new RuntimeException("Recenzent " + recenzent.getRecenzentId() +

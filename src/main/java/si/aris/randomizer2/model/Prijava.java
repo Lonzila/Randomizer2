@@ -15,7 +15,7 @@ import lombok.Setter;
 public class Prijava {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    //@GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "prijava_id") // Poimenovanje stolpca v bazi
     private int prijavaId;
 

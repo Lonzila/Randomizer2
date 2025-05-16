@@ -17,7 +17,7 @@ import java.util.List;
 public class Recenzent {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    //@GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "recenzent_id") // Poimenovanje stolpca v bazi
     private int recenzentId;
 
@@ -42,8 +42,8 @@ public class Recenzent {
     @Column(name = "porocevalec") // Poimenovanje stolpca v bazi
     private Boolean porocevalec;
 
-    @Column(name = "odpoved_pred_dolocitvijo") // Poimenovanje stolpca v bazi
-    private Boolean odpovedPredDolocitvijo;
+    @Column(name = "odpoved_odstranitev") // Poimenovanje stolpca v bazi
+    private Boolean odpovedOdstranitev;
 
     @Column(name = "prosta_mesta", columnDefinition = "integer default 7") // Poimenovanje stolpca v bazi
     private int prostaMesta = 7;
