@@ -18,19 +18,14 @@ public class DodeljevanjeController {
     private DodeljevanjeService dodeljevanjeService;
 
     @PostMapping("/predizbor")
-    public ResponseEntity<ByteArrayResource> predizbor() {
+    public ResponseEntity<Void> predizbor() {
         try {
             System.out.println("Začel izvajati predizbor");
-            ByteArrayResource datoteka = dodeljevanjeService.predizbor();  // nova metoda v service
-            System.out.println("Predizbor zaključen");
-
-            return ResponseEntity.ok()
-                    .header("Content-Disposition", "attachment; filename=predizbor.xlsx")
-                    .header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-                    .body(datoteka);
-
+            // kličete glavno metodo
+            dodeljevanjeService.predizbor(); // ali druga metoda, kjer je vsebina
+            return ResponseEntity.ok().build(); // samo "200 OK"
         } catch (Exception e) {
-            e.printStackTrace();  // Izpiši natančne informacije o napaki
+            e.printStackTrace();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }

@@ -43,7 +43,7 @@ public class DodeljevanjeService {
 
     private static final Logger logger = LoggerFactory.getLogger(DodeljevanjeService.class);
 
-    public ByteArrayResource predizbor() throws IOException{
+    public void predizbor() throws IOException{
 
         StatusPrijav statusBrezRecenzenta = statusPrijavRepository.findByNaziv("BREZ RECENZENTA")
                 .orElseThrow(() -> new RuntimeException("Status 'BREZ RECENZENTA' ni bil najden."));
@@ -115,7 +115,7 @@ public class DodeljevanjeService {
         }
         logger.info("Število prijav brez recenzenta po predizboru: {}", prijavaRepository.countByStatusPrijavNaziv("BREZ RECENZENTA"));
         //logger.info("Skupno število ustvarjenih skupin: {}", totalGroups);
-        return excelExportService.exportPredizborToExcel(prijaveZFallbackom);
+        //return excelExportService.exportPredizborToExcel(prijaveZFallbackom);
     }
 
     /*private void dodeliRecenzenteZaSkupino(List<Prijava> prijaveSkupine) {
