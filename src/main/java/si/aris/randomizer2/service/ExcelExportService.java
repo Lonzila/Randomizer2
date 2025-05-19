@@ -27,7 +27,7 @@ public class ExcelExportService {
     @Autowired
     private ErcPodrocjeRepository ercPodrocjeRepository;
 
-    public ByteArrayResource exportPredizborToExcel(Set<Integer> prijaveZFallbackom) throws IOException {
+    public void exportPredizborToExcel(Set<Integer> prijaveZFallbackom) throws IOException {
         List<Prijava> prijave = prijavaRepository.findAll();
         List<Predizbor> predizbor = predizborRepository.findAll();
         Map<Integer, List<Predizbor>> predizborMap = predizbor.stream().collect(Collectors.groupingBy(Predizbor::getPrijavaId));
@@ -92,11 +92,14 @@ public class ExcelExportService {
             }
         }
 
-        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        /*ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
         workbook.write(outputStream);
-        workbook.close();
+        workbook.close();*/
 
-        return new ByteArrayResource(outputStream.toByteArray());
+        try (FileOutputStream fileOut = new FileOutputStream("predizbor_celotna.xlsx")) {
+            workbook.write(fileOut);
+        }
+        //return new ByteArrayResource(outputStream.toByteArray());
     }
 
     public void izvozPredizborPravilnost() throws IOException {
