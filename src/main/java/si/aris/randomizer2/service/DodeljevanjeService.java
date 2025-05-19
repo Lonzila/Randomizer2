@@ -253,6 +253,7 @@ public class DodeljevanjeService {
                 .filter(r -> !izloceniOsebni.contains(r.getRecenzentId()))
                 .filter(r -> !drzaveZaIzlocitev.contains(r.getDrzava()))
                 .filter(r -> r.getPrijavePredizbor() + prijaveIds.size() <= 10)
+                .filter(r -> Boolean.FALSE.equals(r.getOdpovedOdstranitev()))
                 .filter(r -> !zeDodeljeni.contains(r.getRecenzentId()))  // ❗️izloči že dodeljene
                 .collect(Collectors.toSet());
     }
