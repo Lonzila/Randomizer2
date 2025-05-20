@@ -82,7 +82,10 @@ public class ExcelExportService {
             String fallbackTag = prijaveZFallbackom.contains(prijava.getPrijavaId()) ? "DA" : "NE";
             row.createCell(15).setCellValue(fallbackTag);
 
-            List<Predizbor> recenzenti = predizborMap.getOrDefault(prijava.getPrijavaId(), List.of());
+            List<Predizbor> recenzenti = predizborMap.getOrDefault(prijava.getPrijavaId(), List.of())
+                    .stream()
+                    .sorted(Comparator.comparing(p -> !p.isPrimarni())) // najprej primarni (true), potem sekundarni (false)
+                    .toList();
             for (int i = 0; i < Math.min(recenzenti.size(), 10); i++) {
                 int recenzentId = recenzenti.get(i).getRecenzentId();
                 Recenzent rec = recenzentRepository.findById(recenzentId).orElse(null);
@@ -276,7 +279,10 @@ public class ExcelExportService {
                 .collect(Collectors.groupingBy(Predizbor::getPrijavaId));
 
         for (Prijava prijava : prijave) {
-            List<Predizbor> recenzenti = mapirani.getOrDefault(prijava.getPrijavaId(), List.of());
+            List<Predizbor> recenzenti = mapirani.getOrDefault(prijava.getPrijavaId(), List.of())
+                    .stream()
+                    .sorted(Comparator.comparing(p -> !p.isPrimarni()))
+                    .toList();
             if (recenzenti.isEmpty()) continue;
 
             Row row = sheet.createRow(rowNum++);

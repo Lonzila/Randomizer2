@@ -89,6 +89,7 @@ public class RecenzentImportService {
                     nov.setEPosta(emailCell != null ? emailCell.getStringCellValue() : "");
                     nov.setDrzava(drzavaCell != null ? drzavaCell.getStringCellValue() : "");
                     //nov.setPorocevalec(false); // default
+                    nov.setOdpovedOdstranitev(false); // default
                     nov.setProstaMesta(7);
                     nov.setPrijavePredizbor(0);
 

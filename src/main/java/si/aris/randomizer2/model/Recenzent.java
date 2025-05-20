@@ -43,7 +43,7 @@ public class Recenzent {
     private Boolean porocevalec;
 
     @Column(name = "odpoved_odstranitev") // Poimenovanje stolpca v bazi
-    private Boolean odpovedOdstranitev;
+    private Boolean odpovedOdstranitev = false;
 
     @Column(name = "prosta_mesta", columnDefinition = "integer default 7") // Poimenovanje stolpca v bazi
     private int prostaMesta = 7;
