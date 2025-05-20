@@ -15,6 +15,7 @@ public class PrijavaController {
     private PrijavaService prijavaService;
 
     // Pridobi vse prijave
+
     @GetMapping
     public List<Prijava> getAll() {
         return prijavaService.getAllApplications();

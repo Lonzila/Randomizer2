@@ -40,6 +40,16 @@ public class ExcelExportController {
             return "Napaka pri izvozu datoteke za pravilnost!";
         }
     }
+    @GetMapping("/izvoz-predizbor-aktualno")
+    public String izvozPredizborAktualnoCelotna() {
+        try {
+            excelExportService.izvoziNovoDodeljeneVeljavne();  // Kliče funkcijo za izvoz
+            return "Datoteka za pravilnost je bila uspešno izvožena!";
+        } catch (IOException e) {
+            e.printStackTrace();
+            return "Napaka pri izvozu datoteke za pravilnost!";
+        }
+    }
     @GetMapping("/recenzenti-areas")
     public ResponseEntity<ByteArrayResource> exportRecenzentiWithAreas() {
         try {

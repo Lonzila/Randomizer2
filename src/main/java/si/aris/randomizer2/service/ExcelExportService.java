@@ -127,6 +127,7 @@ public class ExcelExportService {
         headerRow.createCell(6).setCellValue("ERC");
         headerRow.createCell(7).setCellValue("Dodatno podpodročje");
         headerRow.createCell(8).setCellValue("Dodatno ERC");
+        headerRow.createCell(9).setCellValue("Status");
 
         int rowNum = 2;
         for (Predizbor predizbor : predizborList) {
@@ -148,6 +149,7 @@ public class ExcelExportService {
             row.createCell(6).setCellValue(prijava.getErcPodrocje() != null ? prijava.getErcPodrocje().getKoda() : "");
             row.createCell(7).setCellValue(prijava.getDodatnoPodpodrocje() != null ? prijava.getDodatnoPodpodrocje().getKoda() : "");
             row.createCell(8).setCellValue(prijava.getDodatnoErcPodrocje() != null ? prijava.getDodatnoErcPodrocje().getKoda() : "");
+            row.createCell(9).setCellValue(predizbor.getStatus());
         }
 
         try (FileOutputStream fileOut = new FileOutputStream("predizbor_pravilnost.xlsx")) {
@@ -219,6 +221,7 @@ public class ExcelExportService {
         headerRow.createCell(6).setCellValue("ERC");
         headerRow.createCell(7).setCellValue("Dodatno podpodročje");
         headerRow.createCell(8).setCellValue("Dodatno ERC");
+        headerRow.createCell(9).setCellValue("Status");
 
         int rowNum = 1;
         for (Predizbor p : novoDodeljeni) {
@@ -239,6 +242,7 @@ public class ExcelExportService {
             row.createCell(6).setCellValue(prij.getErcPodrocje() != null ? prij.getErcPodrocje().getKoda() : "");
             row.createCell(7).setCellValue(prij.getDodatnoPodpodrocje() != null ? prij.getDodatnoPodpodrocje().getKoda() : "");
             row.createCell(8).setCellValue(prij.getDodatnoErcPodrocje() != null ? prij.getDodatnoErcPodrocje().getKoda() : "");
+            row.createCell(9).setCellValue(p.getStatus());
         }
 
         try (FileOutputStream fileOut = new FileOutputStream("izvoz_novih_predlogov_kontrola.xlsx")) {

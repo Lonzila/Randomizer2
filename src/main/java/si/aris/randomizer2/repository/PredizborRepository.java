@@ -24,4 +24,6 @@ public interface PredizborRepository extends JpaRepository<Predizbor, Integer> {
     List<Predizbor> findByPrijavaId(int prijavaId);
 
     List<Predizbor> findByPrijavaIdIn(List<Integer> prijavaIds);;
+
+    List<Predizbor> findByStatusIgnoreCase(String status);
 }

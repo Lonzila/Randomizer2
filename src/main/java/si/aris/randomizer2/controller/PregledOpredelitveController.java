@@ -15,7 +15,7 @@ import java.util.Map;
 import java.util.Set;
 
 @RestController
-@RequestMapping("/api/opredelitev")
+@RequestMapping("/api/opredelitve")
 public class PregledOpredelitveController {
 
     private final PregledOpredelitevService pregledOpredelitevService;
@@ -25,17 +25,23 @@ public class PregledOpredelitveController {
         this.pregledOpredelitevService = pregledOpredelitevService;
     }
 
-    @PostMapping("/najpogostejsi-pari")
-    public ResponseEntity<?> izracunajNajpogostejsiPare(@RequestParam("file") MultipartFile file) {
+    @PostMapping("/dodeli-v-ocenjevanje")
+    public ResponseEntity<String> dodeliNajboljsePare() {
         try {
-            Resource resource = file.getResource();
+            Map<Set<Integer>, List<Integer>> rezultat = pregledOpredelitevService.izberiPareIzBazeInDodeliVocenevanje();
 
-            Map<Set<Integer>, List<Integer>> rezultat = pregledOpredelitevService.izracunajNajboljPogostePare(resource);
+            StringBuilder povzetek = new StringBuilder("Dodeljene prijave:\n");
+            rezultat.forEach((par, prijave) -> povzetek
+                    .append("Par ").append(par)
+                    .append(" → ").append(prijave.size()).append(" prijav: ")
+                    .append(prijave).append("\n")
+            );
 
-            return ResponseEntity.ok(rezultat);
+            return ResponseEntity.ok(povzetek.toString());
+
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Napaka pri obdelavi datoteke: " + e.getMessage());
+                    .body("Napaka pri dodeljevanju: " + e.getMessage());
         }
     }
 }
