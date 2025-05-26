@@ -22,7 +22,7 @@ public class StatusImportService {
 
     public void obdelajZavrnitve(Resource excelResource) throws Exception {
         try (InputStream is = excelResource.getInputStream(); Workbook workbook = new XSSFWorkbook(is)) {
-            Sheet sheet = workbook.getSheet("Export");
+            Sheet sheet = workbook.getSheetAt(0);
             Iterator<Row> rowIterator = sheet.iterator();
 
             if (rowIterator.hasNext()) rowIterator.next(); // preskoči glavo
@@ -88,7 +88,7 @@ public class StatusImportService {
 
     public void obdelajPotrditve(Resource excelResource) throws Exception {
         try (InputStream is = excelResource.getInputStream(); Workbook workbook = new XSSFWorkbook(is)) {
-            Sheet sheet = workbook.getSheet("Export");
+            Sheet sheet = workbook.getSheetAt(0);
             Iterator<Row> rowIterator = sheet.iterator();
 
             if (rowIterator.hasNext()) rowIterator.next(); // preskoči glavo
@@ -145,7 +145,7 @@ public class StatusImportService {
 
     public void obdelajOpredelitve(Resource excelResource) throws Exception {
         try (InputStream is = excelResource.getInputStream(); Workbook workbook = new XSSFWorkbook(is)) {
-            Sheet sheet = workbook.getSheet("Export");
+            Sheet sheet = workbook.getSheetAt(0);
             Iterator<Row> rowIterator = sheet.iterator();
 
             if (rowIterator.hasNext()) rowIterator.next(); // preskoči glavo
@@ -215,6 +215,56 @@ public class StatusImportService {
             System.out.println("ℹ️ Preskočenih vrstic: " + preskoceni);
         }
     }
+
+    public void obdelajPredhodneWithdrawn(Resource excelResource) throws Exception {
+        try (InputStream is = excelResource.getInputStream(); Workbook workbook = new XSSFWorkbook(is)) {
+            Sheet sheet = workbook.getSheetAt(0); // prvi list
+            Iterator<Row> rowIterator = sheet.iterator();
+
+            if (rowIterator.hasNext()) rowIterator.next(); // preskoči glavo
+
+            int posodobljeni = 0;
+            int preskoceni = 0;
+            int zePravih = 0;
+
+            while (rowIterator.hasNext()) {
+                Row row = rowIterator.next();
+
+                Cell prijavaCell = row.getCell(0); // "Številka prijave"
+                Cell recenzentCell = row.getCell(1); // "Šifra recenzenta"
+
+                if (prijavaCell == null || recenzentCell == null) {
+                    preskoceni++;
+                    continue;
+                }
+
+                int prijavaId = (int) prijavaCell.getNumericCellValue();
+                int recenzentId = (int) recenzentCell.getNumericCellValue();
+
+                Optional<Predizbor> opt = predizborRepository.findByPrijavaIdAndRecenzentId(prijavaId, recenzentId);
+                if (opt.isPresent()) {
+                    Predizbor p = opt.get();
+                    if ("WITHDRAWN".equalsIgnoreCase(p.getStatus())) {
+                        zePravih++;
+                        continue;
+                    }
+
+                    p.setStatus("WITHDRAWN");
+                    predizborRepository.save(p);
+                    System.out.println("✅ Posodobljen na WITHDRAWN: prijava_id=" + prijavaId + ", recenzent_id=" + recenzentId);
+                    posodobljeni++;
+                } else {
+                    System.out.println("⚠️ Ni najden predizbor za prijava_id=" + prijavaId + ", recenzent_id=" + recenzentId);
+                    preskoceni++;
+                }
+            }
+
+            System.out.println("✔️ Skupno posodobljenih na WITHDRAWN: " + posodobljeni);
+            System.out.println("➖ Že ustrezno nastavljenih: " + zePravih);
+            System.out.println("ℹ️ Preskočenih: " + preskoceni);
+        }
+    }
+
 
 
 }

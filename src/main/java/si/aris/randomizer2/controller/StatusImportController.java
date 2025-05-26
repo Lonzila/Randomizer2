@@ -52,4 +52,21 @@ public class StatusImportController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Napaka pri obdelavi: " + e.getMessage());
         }
     }
+    @PostMapping("/predhodne-withdrawn")
+    public ResponseEntity<String> uvoziPredhodneWithdrawn(@RequestParam("file") MultipartFile file) {
+        try {
+            if (file.isEmpty()) {
+                return ResponseEntity.badRequest().body("Datoteka je prazna.");
+            }
+
+            var resource = new ByteArrayResource(file.getBytes());
+            statusImportService.obdelajPredhodneWithdrawn(resource);
+
+            return ResponseEntity.ok("Uvoz predhodnih WITHDRAWN uspešen.");
+        } catch (IOException e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Napaka pri branju datoteke: " + e.getMessage());
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Napaka pri obdelavi: " + e.getMessage());
+        }
+    }
 }
