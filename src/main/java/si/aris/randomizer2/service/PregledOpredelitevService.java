@@ -106,7 +106,7 @@ public class PregledOpredelitevService {
                     .sorted((e1, e2) -> Integer.compare(e2.getValue().size(), e1.getValue().size()))
                     .forEach(e -> System.out.println("Par " + e.getKey() + " → " + e.getValue().size() + " prijav"));
 
-            Random random = new Random();
+
             Optional<Map.Entry<Set<Integer>, List<Integer>>> izbran = kandidatniPari.entrySet().stream()
                     .sorted((e1, e2) -> Integer.compare(e2.getValue().size(), e1.getValue().size()))
                     .map(e -> {
@@ -163,7 +163,7 @@ public class PregledOpredelitevService {
                     String key = prijavaId + ":" + rec.recenzentId;
                     if (!zeDodeljeniPari.contains(key)) {
                         predizborRepository.findByPrijavaIdAndRecenzentId(prijavaId, rec.recenzentId).ifPresent(pred -> {
-                            pred.setStatus("OPREDELJENO Z DA");
+                            pred.setStatus("OPREDELJEN Z DA");
                             predizborRepository.save(pred);
                             System.out.println("↩️ Povrnjeno: prijava " + prijavaId + ", recenzent " + rec.recenzentId);
                         });

@@ -306,15 +306,37 @@ public class ExcelExportService {
             row.createCell(13).setCellValue(prijava.getPartnerskaAgencija2() != null ? prijava.getPartnerskaAgencija2() : "");
             row.createCell(14).setCellValue(prijava.getStatusPrijav().getNaziv());
 
-            for (int i = 0; i < Math.min(recenzenti.size(), 10); i++) {
-                int recenzentId = recenzenti.get(i).getRecenzentId();
-                Recenzent rec = recenzentRepository.findById(recenzentId).orElse(null);
-                String sifra = rec != null ? String.valueOf(rec.getSifra()) : "NEZNANO";
-                row.createCell(15 + i * 2).setCellValue(sifra);
-                row.createCell(16 + i * 2).setCellValue(recenzenti.get(i).getStatus());
+
+            if (prijava.isInterdisc()) {
+                List<Predizbor> primarni = recenzenti.stream().filter(Predizbor::isPrimarni).toList();
+                List<Predizbor> sekundarni = recenzenti.stream().filter(p -> !p.isPrimarni()).toList();
+
+                for (int i = 0; i < Math.min(primarni.size(), 2); i++) {
+                    int recId = primarni.get(i).getRecenzentId();
+                    Recenzent rec = recenzentRepository.findById(recId).orElse(null);
+                    String sifra = rec != null ? String.valueOf(rec.getSifra()) : "NEZNANO";
+                    row.createCell(15 + (i * 2)).setCellValue(sifra);
+                    row.createCell(16 + (i * 2)).setCellValue(primarni.get(i).getStatus());
+                }
+
+                for (int i = 0; i < Math.min(sekundarni.size(), 3); i++) {
+                    int recId = sekundarni.get(i).getRecenzentId();
+                    Recenzent rec = recenzentRepository.findById(recId).orElse(null);
+                    String sifra = rec != null ? String.valueOf(rec.getSifra()) : "NEZNANO";
+                    row.createCell(19 + (i * 2)).setCellValue(sifra);
+                    row.createCell(20 + (i * 2)).setCellValue(sekundarni.get(i).getStatus());
+                }
+
+            } else {
+                for (int i = 0; i < Math.min(recenzenti.size(), 5); i++) {
+                    int recId = recenzenti.get(i).getRecenzentId();
+                    Recenzent rec = recenzentRepository.findById(recId).orElse(null);
+                    String sifra = rec != null ? String.valueOf(rec.getSifra()) : "NEZNANO";
+                    row.createCell(15 + (i * 2)).setCellValue(sifra);
+                    row.createCell(16 + (i * 2)).setCellValue(recenzenti.get(i).getStatus());
+                }
             }
         }
-
         String timestamp = java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
         try (FileOutputStream fileOut = new FileOutputStream("export_predizbor_novo_stanje_" + timestamp + ".xlsx")) {
             workbook.write(fileOut);

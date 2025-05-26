@@ -29,6 +29,7 @@ public class StatusImportService {
 
             int posodobljeni = 0;
             int preskoceni = 0;
+            int zePravih = 0;
 
             while (rowIterator.hasNext()) {
                 Row row = rowIterator.next();
@@ -50,20 +51,28 @@ public class StatusImportService {
                 Optional<Predizbor> opt = predizborRepository.findByPrijavaIdAndRecenzentId(prijavaId, recenzentId);
                 if (opt.isPresent()) {
                     Predizbor p = opt.get();
+                    String trenutniStatus = p.getStatus();
+                    String novStatus = null;
+
                     if (status.startsWith("can't evaluate")) {
-                        p.setStatus("OPREDELJEN Z NE");
-                        System.out.println("Posodobljen na OPREDELJEN Z NE: prijava_id=" + prijavaId + ", recenzent_id=" + recenzentId);
+                        novStatus = "OPREDELJEN Z NE";
                     } else if (status.contains("withdrawn")) {
-                        p.setStatus("WITHDRAWN");
-                        System.out.println("Posodobljen na WITHDRAWN: prijava_id=" + prijavaId + ", recenzent_id=" + recenzentId);
+                        novStatus = "WITHDRAWN";
                     } else if (status.contains("statement") || status.contains("declined")) {
-                        p.setStatus("STATEMENTS DECLINED");
-                        System.out.println("Posodobljen na STATEMENTS DECLINED: prijava_id=" + prijavaId + ", recenzent_id=" + recenzentId);
+                        novStatus = "STATEMENTS DECLINED";
                     } else {
                         preskoceni++;
                         continue;
                     }
+
+                    if (novStatus.equalsIgnoreCase(trenutniStatus)) {
+                        zePravih++;
+                        continue;
+                    }
+
+                    p.setStatus(novStatus);
                     predizborRepository.save(p);
+                    System.out.println("Posodobljen na " + novStatus + ": prijava_id=" + prijavaId + ", recenzent_id=" + recenzentId);
                     posodobljeni++;
                 } else {
                     System.out.println("⚠️ Ni najden predizbor za prijava_id=" + prijavaId + ", recenzent_id=" + recenzentId);
@@ -71,8 +80,9 @@ public class StatusImportService {
                 }
             }
 
-            System.out.println("Skupno posodobljenih: " + posodobljeni);
-            System.out.println("Preskočenih: " + preskoceni);
+            System.out.println("✔️ Skupno posodobljenih: " + posodobljeni);
+            System.out.println("➖ Že ustrezno nastavljenih: " + zePravih);
+            System.out.println("ℹ️ Preskočenih: " + preskoceni);
         }
     }
 
@@ -85,6 +95,7 @@ public class StatusImportService {
 
             int posodobljeni = 0;
             int preskoceni = 0;
+            int zePravih = 0;
 
             while (rowIterator.hasNext()) {
                 Row row = rowIterator.next();
@@ -111,6 +122,11 @@ public class StatusImportService {
                 Optional<Predizbor> opt = predizborRepository.findByPrijavaIdAndRecenzentId(prijavaId, recenzentId);
                 if (opt.isPresent()) {
                     Predizbor p = opt.get();
+                    String trenutni = p.getStatus();
+                    if ("OPREDELJEN Z DA".equalsIgnoreCase(trenutni)) {
+                        zePravih++;
+                        continue;
+                    }
                     p.setStatus("OPREDELJEN Z DA");
                     predizborRepository.save(p);
                     System.out.println("✅ Posodobljen na OPREDELJEN Z DA: prijava_id=" + prijavaId + ", recenzent_id=" + recenzentId);
@@ -121,8 +137,9 @@ public class StatusImportService {
                 }
             }
 
-            System.out.println("Skupno OPREDELJEN Z DA: " + posodobljeni);
-            System.out.println("Preskočenih vrstic: " + preskoceni);
+            System.out.println("✔️ Skupno posodobljenih: " + posodobljeni);
+            System.out.println("➖ Že ustrezno nastavljenih: " + zePravih);
+            System.out.println("ℹ️ Preskočenih vrstic: " + preskoceni);
         }
     }
 
@@ -135,6 +152,7 @@ public class StatusImportService {
 
             int posodobljeni = 0;
             int preskoceni = 0;
+            int zePravih = 0;
 
             while (rowIterator.hasNext()) {
                 Row row = rowIterator.next();
@@ -182,8 +200,10 @@ public class StatusImportService {
                         predizborRepository.save(p);
                         System.out.println("✅ Posodobljen: prijava_id=" + prijavaId + ", recenzent_id=" + recenzentId +
                                 " → " + prejsnji + " → " + novStatus);
+                        posodobljeni++;
+                    } else {
+                        zePravih++;
                     }
-                    posodobljeni++;
                 } else {
                     System.out.println("⚠️ Ni najden predizbor za prijava_id=" + prijavaId + ", recenzent_id=" + recenzentId);
                     preskoceni++;
@@ -191,6 +211,7 @@ public class StatusImportService {
             }
 
             System.out.println("✔️ Skupno posodobljenih: " + posodobljeni);
+            System.out.println("➖ Že ustrezno nastavljenih: " + zePravih);
             System.out.println("ℹ️ Preskočenih vrstic: " + preskoceni);
         }
     }
