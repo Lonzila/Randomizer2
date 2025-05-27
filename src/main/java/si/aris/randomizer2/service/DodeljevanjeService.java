@@ -1,8 +1,8 @@
 package si.aris.randomizer2.service;
+import lombok.Getter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.core.io.ByteArrayResource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import si.aris.randomizer2.model.*;
@@ -12,8 +12,6 @@ import java.io.IOException;
 import java.security.SecureRandom;
 import java.util.*;
 import java.util.stream.Collectors;
-
-import static si.aris.randomizer2.model.PartnerskeAgencije.PARTNERSKE_AGENCIJE_MAP;
 
 @Service
 public class DodeljevanjeService {
@@ -39,11 +37,12 @@ public class DodeljevanjeService {
     @Autowired
     private ExcelExportService excelExportService;
 
+    @Getter
     private final Set<Integer> prijaveZFallbackom = new HashSet<>();
 
     private static final Logger logger = LoggerFactory.getLogger(DodeljevanjeService.class);
 
-    public void predizbor() throws IOException{
+    public Set<Integer> predizbor() throws IOException{
 
         StatusPrijav statusBrezRecenzenta = statusPrijavRepository.findByNaziv("BREZ RECENZENTA")
                 .orElseThrow(() -> new RuntimeException("Status 'BREZ RECENZENTA' ni bil najden."));
@@ -116,6 +115,7 @@ public class DodeljevanjeService {
         logger.info("Število prijav brez recenzenta po predizboru: {}", prijavaRepository.countByStatusPrijavNaziv("BREZ RECENZENTA"));
         //logger.info("Skupno število ustvarjenih skupin: {}", totalGroups);
         //return excelExportService.exportPredizborToExcel(prijaveZFallbackom);
+        return prijaveZFallbackom;
     }
 
     /*private void dodeliRecenzenteZaSkupino(List<Prijava> prijaveSkupine) {
