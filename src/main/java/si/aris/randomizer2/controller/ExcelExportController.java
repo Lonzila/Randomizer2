@@ -48,6 +48,8 @@ public class ExcelExportController {
         } catch (IOException e) {
             e.printStackTrace();
             return "Napaka pri izvozu datoteke za pravilnost!";
+        } catch (Exception e) {
+            throw new RuntimeException(e);
         }
     }
     @GetMapping("/recenzenti-areas")

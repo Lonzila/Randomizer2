@@ -11,6 +11,8 @@ import si.aris.randomizer2.repository.*;
 import java.io.ByteArrayOutputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -49,8 +51,11 @@ public class ExcelExportService {
                 "Fallback Podpodročje - brez ERC"
         ));
 
-        // dodaj recenzent stolpce (do 10 recenzentov * 2 stolpca)
-        for (int i = 1; i <= 10; i++) {
+        int maxRecenzenti = predizbor.stream()
+                .collect(Collectors.groupingBy(Predizbor::getPrijavaId))
+                .values().stream().mapToInt(List::size).max().orElse(10);
+
+        for (int i = 1; i <= maxRecenzenti; i++) {
             columns.add("Rec" + i);
             columns.add("Rec" + i + " - Status");
         }
@@ -84,25 +89,26 @@ public class ExcelExportService {
 
             List<Predizbor> recenzenti = predizborMap.getOrDefault(prijava.getPrijavaId(), List.of())
                     .stream()
-                    .sorted(Comparator.comparing(p -> !p.isPrimarni())) // najprej primarni (true), potem sekundarni (false)
+                    .sorted(Comparator.comparing(p -> !p.isPrimarni()))
                     .toList();
-            for (int i = 0; i < Math.min(recenzenti.size(), 10); i++) {
-                int recenzentId = recenzenti.get(i).getRecenzentId();
-                Recenzent rec = recenzentRepository.findById(recenzentId).orElse(null);
-                String sifra = rec != null ? String.valueOf(rec.getSifra()) : "NEZNANO";
-                row.createCell(16 + i * 2).setCellValue(sifra);
-                row.createCell(17 + i * 2).setCellValue(recenzenti.get(i).getStatus());
+
+            for (int i = 0; i < maxRecenzenti; i++) {
+                if (i < recenzenti.size()) {
+                    int recenzentId = recenzenti.get(i).getRecenzentId();
+                    Recenzent rec = recenzentRepository.findById(recenzentId).orElse(null);
+                    String sifra = rec != null ? String.valueOf(rec.getSifra()) : "NEZNANO";
+                    row.createCell(16 + i * 2).setCellValue(sifra);
+                    row.createCell(17 + i * 2).setCellValue(recenzenti.get(i).getStatus());
+                } else {
+                    row.createCell(16 + i * 2).setCellValue("");
+                    row.createCell(17 + i * 2).setCellValue("");
+                }
             }
         }
-
-        /*ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-        workbook.write(outputStream);
-        workbook.close();*/
 
         try (FileOutputStream fileOut = new FileOutputStream("predizbor_celotna.xlsx")) {
             workbook.write(fileOut);
         }
-        //return new ByteArrayResource(outputStream.toByteArray());
     }
 
     public void izvozPredizborPravilnost() throws IOException {
@@ -250,7 +256,110 @@ public class ExcelExportService {
         }
     }
 
+    public void izvoziNovoDodeljeneVeljavne() throws Exception {
+        Set<String> dovoljeniStatusi = Set.of(
+                "OPREDELJEN Z DA", "NEOPREDELJEN", "V OCENJEVANJU", "DODELJENA V OCENJEVANJE"
+        );
+
+        List<Prijava> prijave = prijavaRepository.findAll();
+        List<Predizbor> predizbor = predizborRepository.findAll();
+        Map<Integer, List<Predizbor>> mapirani = predizbor.stream()
+                .collect(Collectors.groupingBy(Predizbor::getPrijavaId));
+
+        int maxBlokov = prijave.stream()
+                .mapToInt(p -> {
+                    List<Predizbor> preds = mapirani.getOrDefault(p.getPrijavaId(), List.of());
+                    int primarni = (int) preds.stream().filter(Predizbor::isPrimarni).count();
+                    int sekundarni = preds.size() - primarni;
+                    return (int) Math.ceil(primarni / 2.0) + (int) Math.ceil(sekundarni / 3.0);
+                })
+                .max().orElse(1);
+
+        Workbook workbook = new XSSFWorkbook();
+        Sheet sheet = workbook.createSheet("Veljavni predizbori novo stanje");
+
+        Row headerRow = sheet.createRow(0);
+        List<String> columns = new ArrayList<>(List.of(
+                "ID Prijave", "Številka Prijave", "Naslov", "Vodja", "Šifra Vodje",
+                "Podpodročje ARIS - naziv", "Podpodročje ARIS - koda", "ERC",
+                "Dodatno Podpodročje - naziv", "Dodatno Podpodročje ARIS - koda", "Dodatno ERC",
+                "Interdisciplinarnost", "Partnerska Agencija 1", "Partnerska Agencija 2", "Status Prijave"
+        ));
+
+        for (int b = 1; b <= maxBlokov; b++) {
+            for (int i = 1; i <= 5; i++) {
+                columns.add("Rec" + (((b - 1) * 5) + i));
+                columns.add("Rec" + (((b - 1) * 5) + i) + " - Status");
+            }
+        }
+
+        for (int i = 0; i < columns.size(); i++) {
+            headerRow.createCell(i).setCellValue(columns.get(i));
+        }
+
+        int rowNum = 1;
+        for (Prijava prijava : prijave) {
+            Row row = sheet.createRow(rowNum++);
+            row.createCell(0).setCellValue(prijava.getPrijavaId());
+            row.createCell(1).setCellValue(prijava.getStevilkaPrijave());
+            row.createCell(2).setCellValue(prijava.getNaslov());
+            row.createCell(3).setCellValue(prijava.getVodja());
+            row.createCell(4).setCellValue(prijava.getSifraVodje());
+            row.createCell(5).setCellValue(prijava.getPodpodrocje().getNaziv());
+            row.createCell(6).setCellValue(prijava.getPodpodrocje().getKoda());
+            row.createCell(7).setCellValue(prijava.getErcPodrocje().getKoda());
+            row.createCell(8).setCellValue(prijava.getDodatnoPodpodrocje() != null ? prijava.getDodatnoPodpodrocje().getNaziv() : "");
+            row.createCell(9).setCellValue(prijava.getDodatnoPodpodrocje() != null ? prijava.getDodatnoPodpodrocje().getKoda() : "");
+            row.createCell(10).setCellValue(prijava.getDodatnoErcPodrocje() != null ? prijava.getDodatnoErcPodrocje().getKoda() : "");
+            row.createCell(11).setCellValue(prijava.isInterdisc() ? "DA" : "NE");
+            row.createCell(12).setCellValue(Optional.ofNullable(prijava.getPartnerskaAgencija1()).orElse(""));
+            row.createCell(13).setCellValue(Optional.ofNullable(prijava.getPartnerskaAgencija2()).orElse(""));
+            row.createCell(14).setCellValue(prijava.getStatusPrijav().getNaziv());
+
+            List<Predizbor> preds = mapirani.getOrDefault(prijava.getPrijavaId(), List.of())
+                    .stream().sorted(Comparator.comparing(p -> !p.isPrimarni())).toList();
+            List<Predizbor> primarni = preds.stream().filter(Predizbor::isPrimarni).toList();
+            List<Predizbor> sekundarni = preds.stream().filter(p -> !p.isPrimarni()).toList();
+
+            int cellIndex = 15;
+            int primIndex = 0, sekIndex = 0;
+            while (primIndex < primarni.size() || sekIndex < sekundarni.size()) {
+                for (int i = 0; i < 2 && primIndex < primarni.size(); i++) {
+                    Predizbor p = primarni.get(primIndex++);
+                    Recenzent r = recenzentRepository.findById(p.getRecenzentId()).orElse(null);
+                    if (dovoljeniStatusi.contains(p.getStatus().toUpperCase())) {
+                        row.createCell(cellIndex++).setCellValue(r != null ? String.valueOf(r.getSifra()) : "NEZNANO");
+                        row.createCell(cellIndex++).setCellValue(p.getStatus());
+                    } else {
+                        row.createCell(cellIndex++).setCellValue("");
+                        row.createCell(cellIndex++).setCellValue("");
+                    }
+                }
+                for (int i = 0; i < 3 && sekIndex < sekundarni.size(); i++) {
+                    Predizbor p = sekundarni.get(sekIndex++);
+                    Recenzent r = recenzentRepository.findById(p.getRecenzentId()).orElse(null);
+                    if (dovoljeniStatusi.contains(p.getStatus().toUpperCase())) {
+                        row.createCell(cellIndex++).setCellValue(r != null ? String.valueOf(r.getSifra()) : "NEZNANO");
+                        row.createCell(cellIndex++).setCellValue(p.getStatus());
+                    } else {
+                        row.createCell(cellIndex++).setCellValue("");
+                        row.createCell(cellIndex++).setCellValue("");
+                    }
+                }
+            }
+        }
+
+        String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
+        try (FileOutputStream fileOut = new FileOutputStream("export_predizbor_novo_stanje_" + timestamp + ".xlsx")) {
+            workbook.write(fileOut);
+        }
+    }
+    /*
     public void izvoziNovoDodeljeneVeljavne() throws IOException {
+        Set<String> dovoljeniStatusi = Set.of(
+                "OPREDELJEN Z DA", "NEOPREDELJEN", "V OCENJEVANJU", "DODELJENA V OCENJEVANJE"
+        );
+
         Workbook workbook = new XSSFWorkbook();
         Sheet sheet = workbook.createSheet("Veljavni predizbori novo stanje");
 
@@ -274,13 +383,19 @@ public class ExcelExportService {
 
         int rowNum = 1;
         List<Prijava> prijave = prijavaRepository.findAll();
-        List<Predizbor> predizbor = predizborRepository.findAll();
-        Map<Integer, List<Predizbor>> mapirani = predizbor.stream()
-                .filter(p -> p.getStatus().equalsIgnoreCase("OPREDELJEN Z DA")
-                        || p.getStatus().equalsIgnoreCase("NEOPREDELJEN")
-                        || p.getStatus().equalsIgnoreCase("V OCENJEVANJU")
-                        || p.getStatus().equalsIgnoreCase("DODELJENA V OCENJEVANJE"))
+        //List<Predizbor> predizbor = predizborRepository.findAll();
+        //Map<Integer, List<Predizbor>> mapirani = predizbor.stream()
+          //      .filter(p -> p.getStatus().equalsIgnoreCase("OPREDELJEN Z DA")
+            //            || p.getStatus().equalsIgnoreCase("NEOPREDELJEN")
+              //          || p.getStatus().equalsIgnoreCase("V OCENJEVANJU")
+                        //|| p.getStatus().equalsIgnoreCase("DODELJENA V OCENJEVANJE")
+                //)
+                //.collect(Collectors.groupingBy(Predizbor::getPrijavaId));
+
+        List<Predizbor> vsi = predizborRepository.findAll();
+        Map<Integer, List<Predizbor>> mapirani = vsi.stream()
                 .collect(Collectors.groupingBy(Predizbor::getPrijavaId));
+
 
         for (Prijava prijava : prijave) {
             List<Predizbor> recenzenti = mapirani.getOrDefault(prijava.getPrijavaId(), List.of())
@@ -311,29 +426,61 @@ public class ExcelExportService {
                 List<Predizbor> primarni = recenzenti.stream().filter(Predizbor::isPrimarni).toList();
                 List<Predizbor> sekundarni = recenzenti.stream().filter(p -> !p.isPrimarni()).toList();
 
-                for (int i = 0; i < Math.min(primarni.size(), 2); i++) {
-                    int recId = primarni.get(i).getRecenzentId();
-                    Recenzent rec = recenzentRepository.findById(recId).orElse(null);
-                    String sifra = rec != null ? String.valueOf(rec.getSifra()) : "NEZNANO";
-                    row.createCell(15 + (i * 2)).setCellValue(sifra);
-                    row.createCell(16 + (i * 2)).setCellValue(primarni.get(i).getStatus());
+                for (int i = 0; i < 2; i++) {
+                    if (i < primarni.size()) {
+                        Predizbor p = primarni.get(i);
+                        String status = p.getStatus() != null ? p.getStatus().toUpperCase() : "";
+                        if (dovoljeniStatusi.contains(status)) {
+                            Recenzent rec = recenzentRepository.findById(p.getRecenzentId()).orElse(null);
+                            String sifra = rec != null ? String.valueOf(rec.getSifra()) : "NEZNANO";
+                            row.createCell(15 + (i * 2)).setCellValue(sifra);
+                            row.createCell(16 + (i * 2)).setCellValue(p.getStatus());
+                        } else {
+                            row.createCell(15 + (i * 2)).setCellValue("");
+                            row.createCell(16 + (i * 2)).setCellValue("");
+                        }
+                    } else {
+                        row.createCell(15 + (i * 2)).setCellValue("");
+                        row.createCell(16 + (i * 2)).setCellValue("");
+                    }
                 }
 
-                for (int i = 0; i < Math.min(sekundarni.size(), 3); i++) {
-                    int recId = sekundarni.get(i).getRecenzentId();
-                    Recenzent rec = recenzentRepository.findById(recId).orElse(null);
-                    String sifra = rec != null ? String.valueOf(rec.getSifra()) : "NEZNANO";
-                    row.createCell(19 + (i * 2)).setCellValue(sifra);
-                    row.createCell(20 + (i * 2)).setCellValue(sekundarni.get(i).getStatus());
+                for (int i = 0; i < 3; i++) {
+                    if (i < sekundarni.size()) {
+                        Predizbor p = sekundarni.get(i);
+                        String status = p.getStatus() != null ? p.getStatus().toUpperCase() : "";
+                        if (dovoljeniStatusi.contains(status)) {
+                            Recenzent rec = recenzentRepository.findById(p.getRecenzentId()).orElse(null);
+                            String sifra = rec != null ? String.valueOf(rec.getSifra()) : "NEZNANO";
+                            row.createCell(19 + (i * 2)).setCellValue(sifra);
+                            row.createCell(20 + (i * 2)).setCellValue(p.getStatus());
+                        } else {
+                            row.createCell(19 + (i * 2)).setCellValue("");
+                            row.createCell(20 + (i * 2)).setCellValue("");
+                        }
+                    } else {
+                        row.createCell(19 + (i * 2)).setCellValue("");
+                        row.createCell(20 + (i * 2)).setCellValue("");
+                    }
                 }
-
             } else {
-                for (int i = 0; i < Math.min(recenzenti.size(), 5); i++) {
-                    int recId = recenzenti.get(i).getRecenzentId();
-                    Recenzent rec = recenzentRepository.findById(recId).orElse(null);
-                    String sifra = rec != null ? String.valueOf(rec.getSifra()) : "NEZNANO";
-                    row.createCell(15 + (i * 2)).setCellValue(sifra);
-                    row.createCell(16 + (i * 2)).setCellValue(recenzenti.get(i).getStatus());
+                for (int i = 0; i < 10; i++) {
+                    if (i < recenzenti.size()) {
+                        Predizbor p = recenzenti.get(i);
+                        String status = p.getStatus() != null ? p.getStatus().toUpperCase() : "";
+                        if (dovoljeniStatusi.contains(status)) {
+                            Recenzent rec = recenzentRepository.findById(p.getRecenzentId()).orElse(null);
+                            String sifra = rec != null ? String.valueOf(rec.getSifra()) : "NEZNANO";
+                            row.createCell(15 + (i * 2)).setCellValue(sifra);
+                            row.createCell(16 + (i * 2)).setCellValue(p.getStatus());
+                        } else {
+                            row.createCell(15 + (i * 2)).setCellValue("");
+                            row.createCell(16 + (i * 2)).setCellValue("");
+                        }
+                    } else {
+                        row.createCell(15 + (i * 2)).setCellValue("");
+                        row.createCell(16 + (i * 2)).setCellValue("");
+                    }
                 }
             }
         }
@@ -341,6 +488,6 @@ public class ExcelExportService {
         try (FileOutputStream fileOut = new FileOutputStream("export_predizbor_novo_stanje_" + timestamp + ".xlsx")) {
             workbook.write(fileOut);
         }
-    }
+    }*/
 }
 

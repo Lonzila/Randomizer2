@@ -19,6 +19,10 @@ public interface RecenzentRepository extends JpaRepository<Recenzent, Integer> {
 
     int countByProstaMesta(int prostaMesta);
 
+    @Modifying
+    @Query("UPDATE Recenzent r SET r.recenzentId = :nova WHERE r.recenzentId = :stara")
+    int updateRecenzentId(@Param("stara") int staraId, @Param("nova") int novaId);
+
     @Query("SELECT r.drzava, COUNT(r) FROM Recenzent r GROUP BY r.drzava")
     List<Object[]> countByCountry();
 
