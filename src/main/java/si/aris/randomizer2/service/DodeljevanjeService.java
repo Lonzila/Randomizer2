@@ -314,7 +314,7 @@ public class DodeljevanjeService {
             boolean dodatnoMatchP = dodatnoPodpodrocje != null && r.getRecenzentiPodrocja().stream().anyMatch(rp -> rp.getPodpodrocjeId() == dodatnoPodpodrocje.getPodpodrocjeId());
             boolean dodatnoMatchE = dodatnoErcPodrocje != null && r.getRecenzentiErc().stream().anyMatch(re -> re.getErcPodrocjeId() == dodatnoErcPodrocje.getErcId());
 
-            boolean izlocenNaPrimarnem = interdisc && !Boolean.TRUE.equals(r.getPorocevalec()) && primarnoMatchP && primarnoMatchE;
+            boolean izlocenNaPrimarnem = interdisc && Boolean.FALSE.equals(r.getPorocevalec()) && primarnoMatchP && primarnoMatchE;
 
             if (izlocenNaPrimarnem) {
                 System.out.println("Recenzent " + r.getRecenzentId() + " izločen iz primarnega podpodročja, ker ni poročevalec.");

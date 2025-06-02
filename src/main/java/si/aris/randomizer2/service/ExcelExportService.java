@@ -266,15 +266,6 @@ public class ExcelExportService {
         Map<Integer, List<Predizbor>> mapirani = predizbor.stream()
                 .collect(Collectors.groupingBy(Predizbor::getPrijavaId));
 
-        int maxBlokov = prijave.stream()
-                .mapToInt(p -> {
-                    List<Predizbor> preds = mapirani.getOrDefault(p.getPrijavaId(), List.of());
-                    int primarni = (int) preds.stream().filter(Predizbor::isPrimarni).count();
-                    int sekundarni = preds.size() - primarni;
-                    return (int) Math.ceil(primarni / 2.0) + (int) Math.ceil(sekundarni / 3.0);
-                })
-                .max().orElse(1);
-
         Workbook workbook = new XSSFWorkbook();
         Sheet sheet = workbook.createSheet("Veljavni predizbori novo stanje");
 
@@ -286,15 +277,14 @@ public class ExcelExportService {
                 "Interdisciplinarnost", "Partnerska Agencija 1", "Partnerska Agencija 2", "Status Prijave"
         ));
 
-        for (int b = 1; b <= maxBlokov; b++) {
-            for (int i = 1; i <= 5; i++) {
-                columns.add("Rec" + (((b - 1) * 5) + i));
-                columns.add("Rec" + (((b - 1) * 5) + i) + " - Status");
-            }
+        for (int i = 1; i <= 5; i++) {
+            columns.add("Rec" + i);
+            columns.add("Rec" + i + " - Status");
         }
 
         for (int i = 0; i < columns.size(); i++) {
-            headerRow.createCell(i).setCellValue(columns.get(i));
+            Cell cell = headerRow.createCell(i);
+            cell.setCellValue(columns.get(i));
         }
 
         int rowNum = 1;
@@ -318,34 +308,55 @@ public class ExcelExportService {
 
             List<Predizbor> preds = mapirani.getOrDefault(prijava.getPrijavaId(), List.of())
                     .stream().sorted(Comparator.comparing(p -> !p.isPrimarni())).toList();
+
             List<Predizbor> primarni = preds.stream().filter(Predizbor::isPrimarni).toList();
             List<Predizbor> sekundarni = preds.stream().filter(p -> !p.isPrimarni()).toList();
 
+            List<Predizbor> primarniVeljavni = primarni.stream()
+                    .filter(p -> dovoljeniStatusi.contains(p.getStatus().toUpperCase())).toList();
+            List<Predizbor> sekundarniVeljavni = sekundarni.stream()
+                    .filter(p -> dovoljeniStatusi.contains(p.getStatus().toUpperCase())).toList();
+
+            List<String> sifre = new ArrayList<>(Collections.nCopies(5, ""));
+            List<String> statusi = new ArrayList<>(Collections.nCopies(5, ""));
+
+            // Najprej poskusi ohraniti stare na svojih mestih
+            for (int i = 0; i < 2; i++) {
+                if (i < primarniVeljavni.size()) {
+                    Recenzent r = recenzentRepository.findById(primarniVeljavni.get(i).getRecenzentId()).orElse(null);
+                    sifre.set(i, r != null ? String.valueOf(r.getSifra()) : "NEZNANO");
+                    statusi.set(i, primarniVeljavni.get(i).getStatus());
+                }
+            }
+
+            for (int i = 0; i < 3; i++) {
+                if (i < sekundarniVeljavni.size()) {
+                    Recenzent r = recenzentRepository.findById(sekundarniVeljavni.get(i).getRecenzentId()).orElse(null);
+                    sifre.set(2 + i, r != null ? String.valueOf(r.getSifra()) : "NEZNANO");
+                    statusi.set(2 + i, sekundarniVeljavni.get(i).getStatus());
+                }
+            }
+
+            // Potem zapolni prazna mesta z novimi veljavnimi recenzenti
+            List<Predizbor> novi = preds.stream()
+                    .filter(p -> dovoljeniStatusi.contains(p.getStatus().toUpperCase()))
+                    .filter(p -> !primarniVeljavni.contains(p) && !sekundarniVeljavni.contains(p))
+                    .toList();
+
+            for (int i = 0; i < 5 && !novi.isEmpty(); i++) {
+                if (sifre.get(i).isEmpty()) {
+                    Predizbor p = novi.get(0);
+                    Recenzent r = recenzentRepository.findById(p.getRecenzentId()).orElse(null);
+                    sifre.set(i, r != null ? String.valueOf(r.getSifra()) : "NEZNANO");
+                    statusi.set(i, p.getStatus());
+                    novi = novi.subList(1, novi.size());
+                }
+            }
+
             int cellIndex = 15;
-            int primIndex = 0, sekIndex = 0;
-            while (primIndex < primarni.size() || sekIndex < sekundarni.size()) {
-                for (int i = 0; i < 2 && primIndex < primarni.size(); i++) {
-                    Predizbor p = primarni.get(primIndex++);
-                    Recenzent r = recenzentRepository.findById(p.getRecenzentId()).orElse(null);
-                    if (dovoljeniStatusi.contains(p.getStatus().toUpperCase())) {
-                        row.createCell(cellIndex++).setCellValue(r != null ? String.valueOf(r.getSifra()) : "NEZNANO");
-                        row.createCell(cellIndex++).setCellValue(p.getStatus());
-                    } else {
-                        row.createCell(cellIndex++).setCellValue("");
-                        row.createCell(cellIndex++).setCellValue("");
-                    }
-                }
-                for (int i = 0; i < 3 && sekIndex < sekundarni.size(); i++) {
-                    Predizbor p = sekundarni.get(sekIndex++);
-                    Recenzent r = recenzentRepository.findById(p.getRecenzentId()).orElse(null);
-                    if (dovoljeniStatusi.contains(p.getStatus().toUpperCase())) {
-                        row.createCell(cellIndex++).setCellValue(r != null ? String.valueOf(r.getSifra()) : "NEZNANO");
-                        row.createCell(cellIndex++).setCellValue(p.getStatus());
-                    } else {
-                        row.createCell(cellIndex++).setCellValue("");
-                        row.createCell(cellIndex++).setCellValue("");
-                    }
-                }
+            for (int i = 0; i < 5; i++) {
+                row.createCell(++cellIndex).setCellValue(sifre.get(i));
+                row.createCell(++cellIndex).setCellValue(statusi.get(i));
             }
         }
 
