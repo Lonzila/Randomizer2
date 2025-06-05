@@ -257,9 +257,7 @@ public class ExcelExportService {
     }
 
     public void izvoziNovoDodeljeneVeljavne() throws Exception {
-        Set<String> dovoljeniStatusi = Set.of(
-                "OPREDELJEN Z DA", "NEOPREDELJEN", "V OCENJEVANJU", "DODELJENA V OCENJEVANJE"
-        );
+        Set<String> dovoljeniStatusi = Set.of("OPREDELJEN Z DA", "NEOPREDELJEN", "V OCENJEVANJU", "DODELJENA V OCENJEVANJE");
 
         List<Prijava> prijave = prijavaRepository.findAll();
         List<Predizbor> predizbor = predizborRepository.findAll();
@@ -274,17 +272,13 @@ public class ExcelExportService {
                 "ID Prijave", "Številka Prijave", "Naslov", "Vodja", "Šifra Vodje",
                 "Podpodročje ARIS - naziv", "Podpodročje ARIS - koda", "ERC",
                 "Dodatno Podpodročje - naziv", "Dodatno Podpodročje ARIS - koda", "Dodatno ERC",
-                "Interdisciplinarnost", "Partnerska Agencija 1", "Partnerska Agencija 2", "Status Prijave"
+                "Interdisciplinarnost", "Partnerska Agencija 1", "Partnerska Agencija 2", "Status Prijave",
+                "Rec1", "Rec1 - Status", "Rec2", "Rec2 - Status", "Rec3", "Rec3 - Status",
+                "Rec4", "Rec4 - Status", "Rec5", "Rec5 - Status"
         ));
 
-        for (int i = 1; i <= 5; i++) {
-            columns.add("Rec" + i);
-            columns.add("Rec" + i + " - Status");
-        }
-
         for (int i = 0; i < columns.size(); i++) {
-            Cell cell = headerRow.createCell(i);
-            cell.setCellValue(columns.get(i));
+            headerRow.createCell(i).setCellValue(columns.get(i));
         }
 
         int rowNum = 1;
@@ -306,57 +300,115 @@ public class ExcelExportService {
             row.createCell(13).setCellValue(Optional.ofNullable(prijava.getPartnerskaAgencija2()).orElse(""));
             row.createCell(14).setCellValue(prijava.getStatusPrijav().getNaziv());
 
-            List<Predizbor> preds = mapirani.getOrDefault(prijava.getPrijavaId(), List.of())
-                    .stream().sorted(Comparator.comparing(p -> !p.isPrimarni())).toList();
+            List<Predizbor> vsi = mapirani.getOrDefault(prijava.getPrijavaId(), List.of());
 
-            List<Predizbor> primarni = preds.stream().filter(Predizbor::isPrimarni).toList();
-            List<Predizbor> sekundarni = preds.stream().filter(p -> !p.isPrimarni()).toList();
-
-            List<Predizbor> primarniVeljavni = primarni.stream()
-                    .filter(p -> dovoljeniStatusi.contains(p.getStatus().toUpperCase())).toList();
-            List<Predizbor> sekundarniVeljavni = sekundarni.stream()
-                    .filter(p -> dovoljeniStatusi.contains(p.getStatus().toUpperCase())).toList();
-
-            List<String> sifre = new ArrayList<>(Collections.nCopies(5, ""));
-            List<String> statusi = new ArrayList<>(Collections.nCopies(5, ""));
-
-            // Najprej poskusi ohraniti stare na svojih mestih
-            for (int i = 0; i < 2; i++) {
-                if (i < primarniVeljavni.size()) {
-                    Recenzent r = recenzentRepository.findById(primarniVeljavni.get(i).getRecenzentId()).orElse(null);
-                    sifre.set(i, r != null ? String.valueOf(r.getSifra()) : "NEZNANO");
-                    statusi.set(i, primarniVeljavni.get(i).getStatus());
-                }
+            List<Predizbor> primarni = new ArrayList<>();
+            List<Predizbor> sekundarni = new ArrayList<>();
+            for (Predizbor p : vsi) {
+                if (p.isPrimarni()) primarni.add(p);
+                else sekundarni.add(p);
             }
 
-            for (int i = 0; i < 3; i++) {
-                if (i < sekundarniVeljavni.size()) {
-                    Recenzent r = recenzentRepository.findById(sekundarniVeljavni.get(i).getRecenzentId()).orElse(null);
-                    sifre.set(2 + i, r != null ? String.valueOf(r.getSifra()) : "NEZNANO");
-                    statusi.set(2 + i, sekundarniVeljavni.get(i).getStatus());
-                }
-            }
-
-            // Potem zapolni prazna mesta z novimi veljavnimi recenzenti
-            List<Predizbor> novi = preds.stream()
+            List<Predizbor> veljavniPrimarni = primarni.stream()
                     .filter(p -> dovoljeniStatusi.contains(p.getStatus().toUpperCase()))
-                    .filter(p -> !primarniVeljavni.contains(p) && !sekundarniVeljavni.contains(p))
-                    .toList();
+                    .collect(Collectors.toCollection(ArrayList::new));
+            List<Predizbor> veljavniSekundarni = sekundarni.stream()
+                    .filter(p -> dovoljeniStatusi.contains(p.getStatus().toUpperCase()))
+                    .collect(Collectors.toCollection(ArrayList::new));
 
-            for (int i = 0; i < 5 && !novi.isEmpty(); i++) {
-                if (sifre.get(i).isEmpty()) {
-                    Predizbor p = novi.get(0);
-                    Recenzent r = recenzentRepository.findById(p.getRecenzentId()).orElse(null);
-                    sifre.set(i, r != null ? String.valueOf(r.getSifra()) : "NEZNANO");
-                    statusi.set(i, p.getStatus());
-                    novi = novi.subList(1, novi.size());
-                }
-            }
-
+            List<Integer> zeUporabljeni = new ArrayList<>();
             int cellIndex = 15;
-            for (int i = 0; i < 5; i++) {
-                row.createCell(++cellIndex).setCellValue(sifre.get(i));
-                row.createCell(++cellIndex).setCellValue(statusi.get(i));
+
+            if (prijava.isInterdisc()) {
+                // Rec1–Rec2 → primarni
+                for (int i = 0; i < 2; i++) {
+                    boolean zapisano = false;
+                    if (i < primarni.size()) {
+                        Predizbor p = primarni.get(i);
+                        if (dovoljeniStatusi.contains(p.getStatus().toUpperCase())
+                                && !zeUporabljeni.contains(p.getRecenzentId())) {
+                            Recenzent r = recenzentRepository.findById(p.getRecenzentId()).orElse(null);
+                            zeUporabljeni.add(p.getRecenzentId());
+                            row.createCell(cellIndex++).setCellValue(r != null ? String.valueOf(r.getSifra()) : "NEZNANO");
+                            row.createCell(cellIndex++).setCellValue(p.getStatus());
+                            zapisano = true;
+                        }
+                    }
+                    if (!zapisano) {
+                        Iterator<Predizbor> it = veljavniPrimarni.iterator();
+                        while (it.hasNext()) {
+                            Predizbor fallback = it.next();
+                            if (!zeUporabljeni.contains(fallback.getRecenzentId())) {
+                                Recenzent r = recenzentRepository.findById(fallback.getRecenzentId()).orElse(null);
+                                zeUporabljeni.add(fallback.getRecenzentId());
+                                row.createCell(cellIndex++).setCellValue(r != null ? String.valueOf(r.getSifra()) : "NEZNANO");
+                                row.createCell(cellIndex++).setCellValue(fallback.getStatus());
+                                it.remove(); // odstrani iz seznama, da ne bo še kje kasneje uporabljen
+                                zapisano = true;
+                                break;
+                            }
+                        }
+                    }
+                    if (!zapisano) {
+                        row.createCell(cellIndex++).setCellValue("");
+                        row.createCell(cellIndex++).setCellValue("");
+                    }
+                }
+
+                // Rec3–Rec5 → sekundarni
+                for (int i = 0; i < 3; i++) {
+                    boolean zapisano = false;
+                    if (i < sekundarni.size()) {
+                        Predizbor p = sekundarni.get(i);
+                        if (dovoljeniStatusi.contains(p.getStatus().toUpperCase())
+                                && !zeUporabljeni.contains(p.getRecenzentId())) {
+                            Recenzent r = recenzentRepository.findById(p.getRecenzentId()).orElse(null);
+                            zeUporabljeni.add(p.getRecenzentId());
+                            row.createCell(cellIndex++).setCellValue(r != null ? String.valueOf(r.getSifra()) : "NEZNANO");
+                            row.createCell(cellIndex++).setCellValue(p.getStatus());
+                            zapisano = true;
+                        }
+                    }
+                    if (!zapisano) {
+                        Iterator<Predizbor> it = veljavniSekundarni.iterator();
+                        while (it.hasNext()) {
+                            Predizbor fallback = it.next();
+                            if (!zeUporabljeni.contains(fallback.getRecenzentId())) {
+                                Recenzent r = recenzentRepository.findById(fallback.getRecenzentId()).orElse(null);
+                                zeUporabljeni.add(fallback.getRecenzentId());
+                                row.createCell(cellIndex++).setCellValue(r != null ? String.valueOf(r.getSifra()) : "NEZNANO");
+                                row.createCell(cellIndex++).setCellValue(fallback.getStatus());
+                                it.remove(); // odstrani da ne pride v poštev drugič
+                                zapisano = true;
+                                break;
+                            }
+                        }
+                    }
+                    if (!zapisano) {
+                        row.createCell(cellIndex++).setCellValue("");
+                        row.createCell(cellIndex++).setCellValue("");
+                    }
+                }
+
+            } else {
+                // Neinterdisciplinarne – 5 prvih veljavnih unikatnih recenzentov
+                List<Predizbor> veljavni = vsi.stream()
+                        .filter(p -> dovoljeniStatusi.contains(p.getStatus().toUpperCase()))
+                        .filter(p -> zeUporabljeni.add(p.getRecenzentId()))
+                        .limit(5)
+                        .toList();
+
+                for (int i = 0; i < 5; i++) {
+                    if (i < veljavni.size()) {
+                        Predizbor p = veljavni.get(i);
+                        Recenzent r = recenzentRepository.findById(p.getRecenzentId()).orElse(null);
+                        row.createCell(cellIndex++).setCellValue(r != null ? String.valueOf(r.getSifra()) : "NEZNANO");
+                        row.createCell(cellIndex++).setCellValue(p.getStatus());
+                    } else {
+                        row.createCell(cellIndex++).setCellValue("");
+                        row.createCell(cellIndex++).setCellValue("");
+                    }
+                }
             }
         }
 
